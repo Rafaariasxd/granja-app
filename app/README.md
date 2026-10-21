@@ -6,8 +6,11 @@ App en Flutter para Android e iOS. Funciona sin señal: guarda en el celular y s
 
 | Carpeta | Qué tiene |
 | --- | --- |
-| `lib/dominio/` | Modelos y cálculos en Dart puro (edad, etapa, postura, alerta de baja postura, fecha de la granja). Los mismos resultados que el backend |
-| `lib/datos/` | Cliente de la API (`api_granja.dart`) y cola de sincronización (`cola.dart`, `sincronizador.dart`). Falta guardar la cola en SQLite: hoy existe la versión en memoria |
+| `lib/dominio/` | Modelos y cálculos en Dart puro (edad, etapa, postura, alerta de baja postura, fecha de la granja, id de cada registro). Los mismos resultados que el backend |
+| `lib/datos/` | Cliente de la API (`api_granja.dart`), cola de sincronización (`cola.dart`, `sincronizador.dart`) y la cola guardada en SQLite del celular (`almacen_sqlite.dart`) |
+| `lib/presentacion/` | Tema visual, lógica del formulario de registro (`formulario_registro.dart`) y pantallas. Las pantallas del boceto se arman cuando se apruebe el diseño |
+
+El dominio no puede importar Flutter ni las otras capas, y los datos no pueden importar la presentación: `test/arquitectura_test.dart` lo revisa.
 
 ## Cómo se sincroniza
 
@@ -21,9 +24,6 @@ Cada registro del día entra primero a la cola del celular, con el id que genera
 | Datos rechazados (por ejemplo, galpón sin lote ese día) | Queda marcado con el mensaje y se siguen enviando los demás |
 
 Corregir un registro antes de enviarlo lo reemplaza en la cola. Corregirlo después de enviado lo vuelve a enviar, y el servidor lo actualiza porque el id es el mismo.
-| `lib/presentacion/` | Pantallas, widgets y el tema visual |
-
-El dominio no puede importar Flutter ni las otras capas: `test/arquitectura_test.dart` lo revisa.
 
 ## Correr
 
