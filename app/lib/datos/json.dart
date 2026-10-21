@@ -3,6 +3,8 @@ import '../dominio/modelos.dart';
 
 String fechaIso(DateTime fecha) => soloDia(fecha).toIso8601String().substring(0, 10);
 
+DateTime fechaDesdeIso(String texto) => DateTime.parse('${texto}T00:00:00Z');
+
 Map<String, Object> registroAJson(RegistroDiario registro) => {
   'id': registro.id,
   'galpon_id': registro.galponId,

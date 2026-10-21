@@ -44,5 +44,6 @@ class AlmacenEnMemoria implements AlmacenCambios {
         ..sort((a, b) => a.guardadoEn.compareTo(b.guardadoEn));
 
   @override
-  Future<List<CambioRegistro>> todos() async => _cambios.values.toList();
+  Future<List<CambioRegistro>> todos() async =>
+      _cambios.values.toList()..sort((a, b) => a.guardadoEn.compareTo(b.guardadoEn));
 }
