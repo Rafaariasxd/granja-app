@@ -109,6 +109,38 @@ void main() {
     expect(() => ApiGranja(base, cliente: cliente).resumen(DateTime.utc(2026, 10, 15)), throwsA(isA<SinConexion>()));
   });
 
+  test('trae el registro del día para poder corregirlo con el mismo id', () async {
+    late Uri pedida;
+    final cliente = MockClient((peticion) async {
+      pedida = peticion.url;
+      return json([
+        {
+          'id': '6f1c2a8e-1b7e-4d0f-9a51-3c2e4b5d6f70',
+          'lote_id': 7,
+          'fecha': '2026-10-15',
+          'huevos_total': 4000,
+          'huevos_rotos': 12,
+          'mortalidad': 3,
+          'alimento_kg': 280.5,
+        },
+      ], 200);
+    });
+
+    final encontrado = await ApiGranja(base, cliente: cliente).registroDelDia(1, DateTime.utc(2026, 10, 15));
+
+    expect(pedida.path, '/api/registros');
+    expect(pedida.queryParameters, {'galpon_id': '1', 'fecha': '2026-10-15'});
+    expect(encontrado!.id, '6f1c2a8e-1b7e-4d0f-9a51-3c2e4b5d6f70');
+    expect(encontrado.galponId, 1);
+    expect(encontrado.huevosRotos, 12);
+    expect(encontrado.alimentoKg, 280.5);
+  });
+
+  test('si ese día no hay registro no devuelve nada', () async {
+    final cliente = MockClient((_) async => json([], 200));
+    expect(await ApiGranja(base, cliente: cliente).registroDelDia(1, DateTime.utc(2026, 10, 15)), isNull);
+  });
+
   test('un error raro del servidor no se confunde con un conflicto', () async {
     final cliente = MockClient((_) async => http.Response('falló', 500));
     expect(

@@ -47,6 +47,16 @@ class ApiGranja {
     return [for (final item in lista) resumenDesdeJson(item as Map<String, dynamic>)];
   }
 
+  Future<RegistroDiario?> registroDelDia(int galponId, DateTime fecha) async {
+    final url = base
+        .resolve('registros')
+        .replace(queryParameters: {'galpon_id': '$galponId', 'fecha': fechaIso(fecha)});
+    final respuesta = await _enviar(() => _cliente.get(url));
+    final lista = jsonDecode(utf8.decode(respuesta.bodyBytes)) as List<dynamic>;
+    if (lista.isEmpty) return null;
+    return registroDesdeJson(lista.single as Map<String, dynamic>, galponId);
+  }
+
   Future<void> guardarRegistro(RegistroDiario registro) async {
     await _enviar(
       () => _cliente.put(
