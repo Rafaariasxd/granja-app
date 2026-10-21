@@ -20,6 +20,7 @@ python -m venv .venv
 source .venv/bin/activate         # en Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 alembic upgrade head              # crea o actualiza las tablas
+python -m app.datos_ejemplo       # opcional: 7 galpones, 3 lotes y una semana de registros de ejemplo
 uvicorn app.main:app --reload     # documentación de la API en http://localhost:8000/docs
 pytest                            # pruebas
 ruff check . && ruff format .     # lint y formato
