@@ -19,12 +19,20 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate         # en Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+alembic upgrade head              # crea o actualiza las tablas
 uvicorn app.main:app --reload     # documentación de la API en http://localhost:8000/docs
 pytest                            # pruebas
 ruff check . && ruff format .     # lint y formato
 ```
 
-Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, por ejemplo `postgresql+psycopg://usuario:clave@localhost/granja`.
+Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, por ejemplo `postgresql+psycopg://usuario:clave@localhost/granja`. Alembic usa la misma variable.
+
+### Cambiar las tablas
+
+1. Edita `backend/app/adaptadores/db/tablas.py`.
+2. Genera la migración: `alembic revision --autogenerate -m "qué cambió"`.
+3. Revisa el archivo nuevo en `backend/migraciones/versions/`: Alembic no detecta todo solo (por ejemplo, restricciones CHECK nuevas en tablas que ya existen).
+4. Aplica con `alembic upgrade head`. Las pruebas verifican que las migraciones dejan el mismo esquema que los modelos.
 
 ## Forma de trabajo
 
