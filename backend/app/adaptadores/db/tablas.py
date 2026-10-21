@@ -1,7 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.adaptadores.db.conexion import Base
@@ -65,3 +65,35 @@ class TablaRegistro(Base):
     huevos_rotos: Mapped[int] = mapped_column(default=0)
     mortalidad: Mapped[int] = mapped_column(default=0)
     alimento_kg: Mapped[float] = mapped_column(default=0)
+
+
+class TablaUsuario(Base):
+    __tablename__ = "usuarios"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(50), unique=True)
+    rol: Mapped[str] = mapped_column(String(20))
+    pin_hash: Mapped[str] = mapped_column(String(200))
+    activo: Mapped[bool] = mapped_column(default=True)
+    intentos_fallidos: Mapped[int] = mapped_column(default=0)
+    bloqueado_hasta: Mapped[datetime | None]
+
+
+class TablaSesion(Base):
+    __tablename__ = "sesiones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    creada_en: Mapped[datetime]
+    revocada: Mapped[bool] = mapped_column(default=False)
+
+
+class TablaEvento(Base):
+    __tablename__ = "bitacora"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    accion: Mapped[str] = mapped_column(String(50))
+    detalle: Mapped[str] = mapped_column(Text)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    momento: Mapped[datetime]

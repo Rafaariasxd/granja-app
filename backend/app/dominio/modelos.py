@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 
 
@@ -57,3 +57,37 @@ class ResumenGalpon:
     aves_vivas: int
     ocupacion_pct: float
     postura_pct: float | None
+
+
+class Rol(StrEnum):
+    ADMINISTRADOR = "administrador"
+    REGISTRADOR = "registrador"
+
+
+@dataclass
+class Usuario:
+    nombre: str
+    rol: Rol
+    pin_hash: str
+    activo: bool = True
+    intentos_fallidos: int = 0
+    bloqueado_hasta: datetime | None = None
+    id: int | None = None
+
+
+@dataclass
+class Sesion:
+    token_hash: str
+    usuario_id: int
+    creada_en: datetime
+    revocada: bool = False
+    id: int | None = None
+
+
+@dataclass(frozen=True)
+class Evento:
+    accion: str
+    detalle: str
+    usuario_id: int
+    momento: datetime
+    id: int | None = None

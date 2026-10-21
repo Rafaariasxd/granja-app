@@ -3,7 +3,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.dominio.modelos import Etapa
+from app.dominio.modelos import Etapa, Rol
 
 
 class GalponIn(BaseModel):
@@ -72,3 +72,29 @@ class ResumenGalponOut(BaseModel):
     aves_vivas: int
     ocupacion_pct: float
     postura_pct: float | None
+
+
+class IngresoIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=50)
+    pin: str = Field(min_length=1, max_length=20)
+
+
+class SesionOut(BaseModel):
+    token: str
+    usuario_id: int
+    nombre: str
+    rol: Rol
+
+
+class UsuarioIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=50)
+    pin: str = Field(min_length=1, max_length=20)
+    rol: Rol = Rol.REGISTRADOR
+
+
+class UsuarioOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    rol: Rol
+    activo: bool

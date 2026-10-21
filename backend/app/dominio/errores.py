@@ -12,3 +12,15 @@ class Conflicto(ErrorDeDominio):
 
 class DatosInvalidos(ErrorDeDominio):
     pass
+
+
+class NoAutenticado(ErrorDeDominio):
+    pass
+
+
+class SinPermiso(ErrorDeDominio):
+    pass
+
+
+class Bloqueado(ErrorDeDominio):
+    pass

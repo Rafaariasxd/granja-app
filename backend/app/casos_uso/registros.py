@@ -1,11 +1,11 @@
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import lotes
 from app.dominio.errores import Conflicto, DatosInvalidos, NoEncontrado
-from app.dominio.modelos import RegistroDiario
+from app.dominio.modelos import Evento, RegistroDiario, Usuario
 
 
 @dataclass(frozen=True)
@@ -53,3 +53,16 @@ def guardar_registro(uow: UnidadDeTrabajo, datos: RegistroDelDia) -> RegistroDia
     )
     uow.confirmar()
     return registro
+
+
+def borrar_registro(uow: UnidadDeTrabajo, quien: Usuario, registro_id: uuid.UUID, ahora: datetime) -> None:
+    registro = uow.registros.obtener(registro_id)
+    if registro is None:
+        raise NoEncontrado(f"el registro {registro_id} no existe")
+    detalle = (
+        f"{registro.id} lote {registro.lote_id} {registro.fecha}: huevos {registro.huevos_total}, "
+        f"rotos {registro.huevos_rotos}, muertas {registro.mortalidad}, alimento {registro.alimento_kg} kg"
+    )
+    uow.registros.eliminar(registro_id)
+    uow.bitacora.agregar(Evento("registro_borrado", detalle, quien.id, ahora))
+    uow.confirmar()

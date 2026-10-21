@@ -1,10 +1,19 @@
+import uuid
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from app.adaptadores.db.tablas import TablaGalpon, TablaLinea, TablaLote, TablaRegistro
-from app.dominio.modelos import Galpon, LineaGenetica, Lote, RegistroDiario
+from app.adaptadores.db.tablas import (
+    TablaEvento,
+    TablaGalpon,
+    TablaLinea,
+    TablaLote,
+    TablaRegistro,
+    TablaSesion,
+    TablaUsuario,
+)
+from app.dominio.modelos import Evento, Galpon, LineaGenetica, Lote, RegistroDiario, Rol, Sesion, Usuario
 
 
 def _galpon(fila: TablaGalpon) -> Galpon:
@@ -149,6 +158,109 @@ class RegistrosSql:
     def ultima_fecha(self, lote_id: int) -> date | None:
         return self._session.scalar(select(func.max(TablaRegistro.fecha)).where(TablaRegistro.lote_id == lote_id))
 
+    def obtener(self, registro_id: uuid.UUID) -> RegistroDiario | None:
+        fila = self._session.get(TablaRegistro, registro_id)
+        return _registro(fila) if fila else None
+
+    def eliminar(self, registro_id: uuid.UUID) -> None:
+        self._session.execute(delete(TablaRegistro).where(TablaRegistro.id == registro_id))
+
+
+def _usuario(fila: TablaUsuario) -> Usuario:
+    return Usuario(
+        id=fila.id,
+        nombre=fila.nombre,
+        rol=Rol(fila.rol),
+        pin_hash=fila.pin_hash,
+        activo=fila.activo,
+        intentos_fallidos=fila.intentos_fallidos,
+        bloqueado_hasta=fila.bloqueado_hasta,
+    )
+
+
+class UsuariosSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, usuario: Usuario) -> Usuario:
+        fila = TablaUsuario(nombre=usuario.nombre, rol=usuario.rol.value, pin_hash=usuario.pin_hash)
+        self._session.add(fila)
+        self._session.flush()
+        return _usuario(fila)
+
+    def obtener(self, usuario_id: int) -> Usuario | None:
+        fila = self._session.get(TablaUsuario, usuario_id)
+        return _usuario(fila) if fila else None
+
+    def por_nombre(self, nombre: str) -> Usuario | None:
+        fila = self._session.scalar(select(TablaUsuario).where(TablaUsuario.nombre == nombre))
+        return _usuario(fila) if fila else None
+
+    def listar(self) -> list[Usuario]:
+        return [_usuario(f) for f in self._session.scalars(select(TablaUsuario).order_by(TablaUsuario.nombre))]
+
+    def actualizar(self, usuario: Usuario) -> Usuario:
+        fila = self._session.get_one(TablaUsuario, usuario.id)
+        fila.activo = usuario.activo
+        fila.intentos_fallidos = usuario.intentos_fallidos
+        fila.bloqueado_hasta = usuario.bloqueado_hasta
+        self._session.flush()
+        return _usuario(fila)
+
+
+class SesionesSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, sesion: Sesion) -> Sesion:
+        fila = TablaSesion(token_hash=sesion.token_hash, usuario_id=sesion.usuario_id, creada_en=sesion.creada_en)
+        self._session.add(fila)
+        self._session.flush()
+        return Sesion(
+            id=fila.id,
+            token_hash=fila.token_hash,
+            usuario_id=fila.usuario_id,
+            creada_en=fila.creada_en,
+            revocada=fila.revocada,
+        )
+
+    def por_token_hash(self, token_hash: str) -> Sesion | None:
+        fila = self._session.scalar(select(TablaSesion).where(TablaSesion.token_hash == token_hash))
+        if fila is None:
+            return None
+        return Sesion(
+            id=fila.id,
+            token_hash=fila.token_hash,
+            usuario_id=fila.usuario_id,
+            creada_en=fila.creada_en,
+            revocada=fila.revocada,
+        )
+
+    def revocar(self, sesion_id: int) -> None:
+        self._session.execute(update(TablaSesion).where(TablaSesion.id == sesion_id).values(revocada=True))
+
+    def revocar_de_usuario(self, usuario_id: int) -> None:
+        self._session.execute(update(TablaSesion).where(TablaSesion.usuario_id == usuario_id).values(revocada=True))
+
+
+class BitacoraSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, evento: Evento) -> Evento:
+        fila = TablaEvento(
+            accion=evento.accion, detalle=evento.detalle, usuario_id=evento.usuario_id, momento=evento.momento
+        )
+        self._session.add(fila)
+        self._session.flush()
+        return Evento(
+            id=fila.id, accion=fila.accion, detalle=fila.detalle, usuario_id=fila.usuario_id, momento=fila.momento
+        )
+
+    def listar(self) -> list[Evento]:
+        filas = self._session.scalars(select(TablaEvento).order_by(TablaEvento.id))
+        return [Evento(f.accion, f.detalle, f.usuario_id, f.momento, f.id) for f in filas]
+
 
 class UnidadDeTrabajoSql:
     def __init__(self, session: Session) -> None:
@@ -157,6 +269,9 @@ class UnidadDeTrabajoSql:
         self.lineas = LineasSql(session)
         self.lotes = LotesSql(session)
         self.registros = RegistrosSql(session)
+        self.usuarios = UsuariosSql(session)
+        self.sesiones = SesionesSql(session)
+        self.bitacora = BitacoraSql(session)
 
     def confirmar(self) -> None:
         self._session.commit()
