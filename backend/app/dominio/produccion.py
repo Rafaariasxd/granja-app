@@ -3,14 +3,8 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from enum import StrEnum
 
-
-class Etapa(StrEnum):
-    CRIA = "cria"
-    LEVANTE = "levante"
-    PRODUCCION = "produccion"
-
+from app.dominio.modelos import Etapa, Galpon, Lote, ResumenGalpon
 
 SEMANA_INICIO_LEVANTE = 6
 SEMANA_INICIO_PRODUCCION = 18
@@ -52,6 +46,35 @@ def postura_pct(huevos: int, aves: int) -> float:
 
 def ocupacion_pct(aves: int, capacidad: int) -> float:
     return porcentaje(aves, capacidad)
+
+
+def resumir_galpon(
+    galpon: Galpon, lote: Lote | None, mortalidad_acumulada: int, huevos_del_dia: int | None, fecha: date
+) -> ResumenGalpon:
+    if lote is None:
+        return ResumenGalpon(
+            galpon_id=galpon.id,
+            nombre=galpon.nombre,
+            capacidad_aves=galpon.capacidad_aves,
+            lote_id=None,
+            etapa=None,
+            edad_semanas=None,
+            aves_vivas=0,
+            ocupacion_pct=0.0,
+            postura_pct=None,
+        )
+    vivas = aves_vivas(lote.aves_iniciales, mortalidad_acumulada)
+    return ResumenGalpon(
+        galpon_id=galpon.id,
+        nombre=galpon.nombre,
+        capacidad_aves=galpon.capacidad_aves,
+        lote_id=lote.id,
+        etapa=etapa(lote.fecha_nacimiento, fecha),
+        edad_semanas=edad_semanas(lote.fecha_nacimiento, fecha),
+        aves_vivas=vivas,
+        ocupacion_pct=ocupacion_pct(vivas, galpon.capacidad_aves),
+        postura_pct=postura_pct(huevos_del_dia, vivas) if huevos_del_dia is not None else None,
+    )
 
 
 @dataclass(frozen=True)

@@ -2,15 +2,16 @@ from datetime import date, timedelta
 
 import pytest
 
+from app.dominio.modelos import Etapa, Galpon, Lote
 from app.dominio.produccion import (
     DiaPostura,
-    Etapa,
     aves_vivas,
     baja_postura,
     edad_semanas,
     etapa,
     ocupacion_pct,
     postura_pct,
+    resumir_galpon,
 )
 
 NACIMIENTO = date(2026, 1, 1)
@@ -72,3 +73,33 @@ def test_pocos_dias_no_alerta():
 
 def test_orden_de_entrada_no_importa():
     assert baja_postura(list(reversed(_dias([92.0, 86.0, 85.0, 87.0]))))
+
+
+GALPON = Galpon(id=1, nombre="Galpón 1", capacidad_aves=6000)
+LOTE = Lote(
+    id=7,
+    galpon_id=1,
+    linea_id=1,
+    fecha_nacimiento=date(2026, 3, 1),
+    fecha_ingreso=date(2026, 3, 2),
+    aves_iniciales=5000,
+)
+
+
+def test_resumen_de_un_galpon_con_lote():
+    resumen = resumir_galpon(GALPON, LOTE, 50, 4000, date(2026, 10, 15))
+    assert resumen.aves_vivas == 4950
+    assert resumen.etapa == Etapa.PRODUCCION
+    assert resumen.ocupacion_pct == 82.5
+    assert resumen.postura_pct == 80.8
+
+
+def test_resumen_sin_registro_del_dia_no_tiene_postura():
+    assert resumir_galpon(GALPON, LOTE, 0, None, date(2026, 10, 15)).postura_pct is None
+
+
+def test_resumen_de_un_galpon_vacio():
+    resumen = resumir_galpon(GALPON, None, 0, None, date(2026, 10, 15))
+    assert resumen.lote_id is None
+    assert resumen.aves_vivas == 0
+    assert resumen.postura_pct is None

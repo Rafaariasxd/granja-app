@@ -2,15 +2,15 @@
 
 App para llevar la granja avícola de la familia: galpones, lotes, producción diaria, plan sanitario, finanzas y alertas. Después se le conectan sensores (IoT) en los galpones.
 
-El alcance está en [docs/alcance.md](docs/alcance.md) y el modelo de datos en [docs/modelo-datos.md](docs/modelo-datos.md).
+El alcance está en [docs/alcance.md](docs/alcance.md), el modelo de datos en [docs/modelo-datos.md](docs/modelo-datos.md) y la arquitectura en [docs/arquitectura.md](docs/arquitectura.md).
 
 ## Estructura
 
 | Carpeta | Qué tiene |
 | --- | --- |
-| `backend/` | API en Python con FastAPI y SQLAlchemy |
+| `backend/` | API en Python con FastAPI y SQLAlchemy, con arquitectura hexagonal |
 | `app/` | App móvil en Flutter para Android e iOS (pendiente) |
-| `docs/` | Alcance, modelo de datos y decisiones |
+| `docs/` | Alcance, modelo de datos, arquitectura y decisiones |
 
 ## Correr el backend
 
@@ -30,7 +30,7 @@ Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, po
 
 - `main` siempre funciona. Cada cambio va en una rama y entra por pull request con revisión.
 - El CI corre lint, formato y pruebas en cada pull request.
-- Los cálculos (postura, etapa, alertas) van en `backend/app/dominio/` como funciones puras con sus pruebas.
+- Las reglas y cálculos del negocio (postura, etapa, lotes, alertas) van en `backend/app/dominio/` como funciones puras con sus pruebas. El dominio no importa FastAPI ni SQLAlchemy.
 
 ## Fases
 

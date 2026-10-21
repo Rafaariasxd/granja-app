@@ -1,9 +1,9 @@
 import uuid
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.dominio.produccion import Etapa
+from app.dominio.modelos import Etapa
 
 
 class GalponIn(BaseModel):
@@ -33,12 +33,6 @@ class LoteIn(BaseModel):
     fecha_ingreso: date
     aves_iniciales: int = Field(gt=0)
 
-    @model_validator(mode="after")
-    def ingreso_despues_de_nacimiento(self) -> "LoteIn":
-        if self.fecha_ingreso < self.fecha_nacimiento:
-            raise ValueError("la fecha de ingreso no puede ser anterior al nacimiento")
-        return self
-
 
 class LoteOut(LoteIn):
     model_config = ConfigDict(from_attributes=True)
@@ -67,7 +61,8 @@ class RegistroOut(BaseModel):
     alimento_kg: float
 
 
-class ResumenGalpon(BaseModel):
+class ResumenGalponOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     galpon_id: int
     nombre: str
     capacidad_aves: int

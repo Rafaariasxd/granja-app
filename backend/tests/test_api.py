@@ -7,7 +7,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db import Base, get_session
+from app.adaptadores.api.dependencias import unidad_de_trabajo
+from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
+from app.adaptadores.db.tablas import crear_tablas
 from app.main import app
 
 HOY = date(2026, 10, 15)
@@ -16,14 +18,14 @@ HOY = date(2026, 10, 15)
 @pytest.fixture
 def client():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+    crear_tablas(engine)
     Sesion = sessionmaker(bind=engine, expire_on_commit=False)
 
-    def sesion_de_prueba():
+    def unidad_de_prueba():
         with Sesion() as s:
-            yield s
+            yield UnidadDeTrabajoSql(s)
 
-    app.dependency_overrides[get_session] = sesion_de_prueba
+    app.dependency_overrides[unidad_de_trabajo] = unidad_de_prueba
     yield TestClient(app)
     app.dependency_overrides.clear()
 
