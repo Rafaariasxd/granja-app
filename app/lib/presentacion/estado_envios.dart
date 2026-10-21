@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../datos/cola.dart';
@@ -14,6 +16,7 @@ class EstadoEnvios extends ChangeNotifier {
   int _enConflicto = 0;
   bool _enviando = false;
   bool _ultimoEnvioFallo = false;
+  StreamSubscription<bool>? _conexion;
 
   int get pendientes => _pendientes;
   int get enConflicto => _enConflicto;
@@ -40,6 +43,17 @@ class EstadoEnvios extends ChangeNotifier {
       _enviando = false;
       notifyListeners();
     }
+  }
+
+  void escucharConexion(Stream<bool> hayConexion) {
+    _conexion?.cancel();
+    _conexion = hayConexion.where((hay) => hay).listen((_) => unawaited(enviar()));
+  }
+
+  @override
+  void dispose() {
+    _conexion?.cancel();
+    super.dispose();
   }
 
   Future<void> _contar() async {

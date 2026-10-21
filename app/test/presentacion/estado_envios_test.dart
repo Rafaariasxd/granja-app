@@ -78,4 +78,38 @@ void main() {
     await estado.guardar(registro('a'), ahora);
     expect(enviandoVisto, [false, true, false]);
   });
+
+  test('cuando vuelve la señal envía lo que quedó en el celular', () async {
+    var haySenal = false;
+    final estado = crear((_) async => haySenal ? ok() : throw http.ClientException('sin red'));
+    final conexion = StreamController<bool>();
+    estado.escucharConexion(conexion.stream);
+    await estado.guardar(registro('a'), ahora);
+    expect(estado.pendientes, 1);
+
+    haySenal = true;
+    conexion.add(true);
+    await pumpEventQueue();
+
+    expect(estado.todoEnviado, isTrue);
+    await conexion.close();
+    estado.dispose();
+  });
+
+  test('perder la señal no intenta enviar', () async {
+    var pedidos = 0;
+    final estado = crear((_) async {
+      pedidos++;
+      return ok();
+    });
+    final conexion = StreamController<bool>();
+    estado.escucharConexion(conexion.stream);
+
+    conexion.add(false);
+    await pumpEventQueue();
+
+    expect(pedidos, 0);
+    await conexion.close();
+    estado.dispose();
+  });
 }
