@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_session
-from app.dominio import produccion
+from app.dominio import fechas, produccion
 
 router = APIRouter()
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -21,6 +21,15 @@ def _lote_activo(session: Session, galpon_id: int, fecha: date) -> models.Lote |
             (models.Lote.fecha_salida.is_(None)) | (models.Lote.fecha_salida >= fecha),
         )
     )
+
+
+def _lote_que_se_cruza(
+    session: Session, galpon_id: int, inicio: date, fin: date | None, excluir: int | None = None
+) -> models.Lote | None:
+    for lote in session.scalars(select(models.Lote).where(models.Lote.galpon_id == galpon_id)):
+        if lote.id != excluir and fechas.periodos_se_cruzan(inicio, fin, lote.fecha_ingreso, lote.fecha_salida):
+            return lote
+    return None
 
 
 def _obtener(session: Session, modelo: type, id_: int, nombre: str):
@@ -111,8 +120,8 @@ def listar_lineas(session: SessionDep):
 def crear_lote(datos: schemas.LoteIn, session: SessionDep):
     galpon = _obtener(session, models.Galpon, datos.galpon_id, "el galpón")
     _obtener(session, models.LineaGenetica, datos.linea_id, "la línea genética")
-    if _lote_activo(session, galpon.id, datos.fecha_ingreso):
-        raise HTTPException(status.HTTP_409_CONFLICT, f"el galpón {galpon.nombre} ya tiene un lote activo")
+    if _lote_que_se_cruza(session, galpon.id, datos.fecha_ingreso, None):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"el galpón {galpon.nombre} ya tiene un lote en esas fechas")
     if datos.aves_iniciales > galpon.capacidad_aves:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -129,6 +138,16 @@ def cerrar_lote(lote_id: int, fecha_salida: date, session: SessionDep):
     lote = _obtener(session, models.Lote, lote_id, "el lote")
     if fecha_salida < lote.fecha_ingreso:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "la salida es anterior al ingreso")
+    ultimo_registro = session.scalar(
+        select(func.max(models.RegistroDiario.fecha)).where(models.RegistroDiario.lote_id == lote.id)
+    )
+    if ultimo_registro is not None and fecha_salida < ultimo_registro:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"el lote tiene registros hasta el {ultimo_registro}"
+        )
+    otro = _lote_que_se_cruza(session, lote.galpon_id, lote.fecha_ingreso, fecha_salida, excluir=lote.id)
+    if otro is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"esa salida se cruza con el lote {otro.id} del mismo galpón")
     lote.fecha_salida = fecha_salida
     session.commit()
     return lote

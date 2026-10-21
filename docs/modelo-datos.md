@@ -70,7 +70,7 @@ erDiagram
 ## Decisiones
 
 - **El registro diario es por lote, no por galpón.** En el tablero se anota por galpón, y la app lo pregunta así. Por debajo se guarda en el lote activo de ese galpón, porque las métricas (postura, curva estándar, edad) dependen del lote.
-- **Un galpón tiene como máximo un lote activo.** Un galpón sin lote activo está vacío.
+- **Un galpón tiene como máximo un lote activo.** Un galpón sin lote activo está vacío. El día de salida todavía cuenta para el lote que sale, así que el siguiente lote entra como pronto al día siguiente. Un lote no se puede cerrar antes de su último registro.
 - **Los registros usan UUID generado en el celular.** Si el celular reenvía el mismo registro al recuperar la conexión, el servidor lo actualiza en vez de duplicarlo.
 - **Un solo registro por lote y día.** Si se corrige un dato, se edita el registro existente.
 - **La clasificación (B, A, AA, Extra, Jumbo) es aparte y de toda la granja**, porque se hace al empacar y no por galpón.

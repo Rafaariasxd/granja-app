@@ -73,6 +73,45 @@ def test_no_se_puede_meter_dos_lotes_en_el_mismo_galpon(client, granja):
     assert r.status_code == 409
 
 
+def test_lote_con_ingreso_anterior_al_lote_activo_choca(client, granja):
+    r = client.post(
+        "/lotes",
+        json={
+            "galpon_id": granja["galpon"]["id"],
+            "linea_id": granja["linea"]["id"],
+            "fecha_nacimiento": "2025-12-01",
+            "fecha_ingreso": "2026-01-01",
+            "aves_iniciales": 1000,
+        },
+    )
+    assert r.status_code == 409
+
+
+def test_salida_no_puede_cruzarse_con_el_lote_siguiente(client, granja):
+    lote = granja["lote"]
+    client.post(f"/lotes/{lote['id']}/salida", params={"fecha_salida": "2026-10-01"})
+    nuevo = client.post(
+        "/lotes",
+        json={
+            "galpon_id": granja["galpon"]["id"],
+            "linea_id": granja["linea"]["id"],
+            "fecha_nacimiento": "2026-09-01",
+            "fecha_ingreso": "2026-10-05",
+            "aves_iniciales": 1000,
+        },
+    )
+    assert nuevo.status_code == 201
+    r = client.post(f"/lotes/{lote['id']}/salida", params={"fecha_salida": "2026-10-20"})
+    assert r.status_code == 409
+
+
+def test_no_se_puede_cerrar_un_lote_antes_de_su_ultimo_registro(client, granja):
+    datos = _registro(granja["galpon"]["id"])
+    client.put(f"/registros/{datos['id']}", json=datos)
+    r = client.post(f"/lotes/{granja['lote']['id']}/salida", params={"fecha_salida": "2026-10-01"})
+    assert r.status_code == 422
+
+
 def test_lote_no_puede_superar_la_capacidad(client, granja):
     r = client.post(
         "/lotes",
