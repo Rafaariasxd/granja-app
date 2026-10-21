@@ -1,13 +1,13 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, Engine, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
+from app.adaptadores.db.conexion import Base
 
 
-class Galpon(Base):
+class TablaGalpon(Base):
     __tablename__ = "galpones"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -15,17 +15,15 @@ class Galpon(Base):
     capacidad_aves: Mapped[int] = mapped_column(CheckConstraint("capacidad_aves > 0"))
     activo: Mapped[bool] = mapped_column(default=True)
 
-    lotes: Mapped[list["Lote"]] = relationship(back_populates="galpon")
 
-
-class LineaGenetica(Base):
+class TablaLinea(Base):
     __tablename__ = "lineas_geneticas"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(50), unique=True)
 
 
-class CurvaEstandar(Base):
+class TablaCurva(Base):
     __tablename__ = "curvas_estandar"
     __table_args__ = (UniqueConstraint("linea_id", "semana_edad"),)
 
@@ -36,7 +34,7 @@ class CurvaEstandar(Base):
     peso_g: Mapped[float | None]
 
 
-class Lote(Base):
+class TablaLote(Base):
     __tablename__ = "lotes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -47,15 +45,11 @@ class Lote(Base):
     aves_iniciales: Mapped[int] = mapped_column(CheckConstraint("aves_iniciales > 0"))
     fecha_salida: Mapped[date | None]
 
-    galpon: Mapped[Galpon] = relationship(back_populates="lotes")
-    registros: Mapped[list["RegistroDiario"]] = relationship(back_populates="lote")
 
-
-class RegistroDiario(Base):
+class TablaRegistro(Base):
     __tablename__ = "registros_diarios"
     __table_args__ = (UniqueConstraint("lote_id", "fecha"),)
 
-    # El id lo genera el celular para que reenviar un registro no lo duplique.
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     lote_id: Mapped[int] = mapped_column(ForeignKey("lotes.id"))
     fecha: Mapped[date]
@@ -64,4 +58,6 @@ class RegistroDiario(Base):
     mortalidad: Mapped[int] = mapped_column(CheckConstraint("mortalidad >= 0"), default=0)
     alimento_kg: Mapped[float] = mapped_column(CheckConstraint("alimento_kg >= 0"), default=0)
 
-    lote: Mapped[Lote] = relationship(back_populates="registros")
+
+def crear_tablas(engine: Engine) -> None:
+    Base.metadata.create_all(engine)
