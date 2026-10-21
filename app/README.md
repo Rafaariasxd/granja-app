@@ -7,7 +7,7 @@ App en Flutter para Android e iOS. Funciona sin señal: guarda en el celular y s
 | Carpeta | Qué tiene |
 | --- | --- |
 | `lib/dominio/` | Modelos y cálculos en Dart puro (edad, etapa, postura, alerta de baja postura, fecha de la granja). Los mismos resultados que el backend |
-| `lib/datos/` | Base local SQLite, cliente de la API y cola de sincronización (pendiente) |
+| `lib/datos/` | Cliente de la API (`api_granja.dart`), que traduce las respuestas a errores claros: sin conexión, registro en conflicto, datos rechazados o error del servidor. Falta la base local SQLite y la cola de sincronización |
 | `lib/presentacion/` | Pantallas, widgets y el tema visual |
 
 El dominio no puede importar Flutter ni las otras capas: `test/arquitectura_test.dart` lo revisa.

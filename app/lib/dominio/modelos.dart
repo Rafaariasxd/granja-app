@@ -56,3 +56,29 @@ class DiaPostura {
   final double realPct;
   final double estandarPct;
 }
+
+class ResumenGalpon {
+  const ResumenGalpon({
+    required this.galponId,
+    required this.nombre,
+    required this.capacidadAves,
+    required this.avesVivas,
+    required this.ocupacionPct,
+    this.loteId,
+    this.etapa,
+    this.edadSemanas,
+    this.posturaPct,
+  });
+
+  final int galponId;
+  final String nombre;
+  final int capacidadAves;
+  final int avesVivas;
+  final double ocupacionPct;
+  final int? loteId;
+  final Etapa? etapa;
+  final int? edadSemanas;
+  final double? posturaPct;
+
+  bool get vacio => loteId == null;
+}
