@@ -165,16 +165,18 @@ def guardar_registro(registro_id: str, datos: schemas.RegistroIn, session: Sessi
             status.HTTP_422_UNPROCESSABLE_CONTENT, f"el galpón {galpon.nombre} no tiene un lote activo ese día"
         )
     campos = datos.model_dump(exclude={"id", "galpon_id"})
+    otro = session.scalar(
+        select(models.RegistroDiario).where(
+            models.RegistroDiario.lote_id == lote.id,
+            models.RegistroDiario.fecha == datos.fecha,
+            models.RegistroDiario.id != datos.id,
+        )
+    )
+    if otro is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"ya hay un registro de {galpon.nombre} para {datos.fecha}")
 
     registro = session.get(models.RegistroDiario, datos.id)
     if registro is None:
-        otro = session.scalar(
-            select(models.RegistroDiario).where(
-                models.RegistroDiario.lote_id == lote.id, models.RegistroDiario.fecha == datos.fecha
-            )
-        )
-        if otro is not None:
-            raise HTTPException(status.HTTP_409_CONFLICT, f"ya hay un registro de {galpon.nombre} para {datos.fecha}")
         registro = models.RegistroDiario(id=datos.id, lote_id=lote.id, **campos)
         session.add(registro)
     else:

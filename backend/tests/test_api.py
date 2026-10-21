@@ -149,6 +149,16 @@ def test_dos_registros_distintos_el_mismo_dia_chocan(client, granja):
     assert client.put(f"/registros/{b['id']}", json=b).status_code == 409
 
 
+def test_corregir_la_fecha_hacia_un_dia_con_registro_choca(client, granja):
+    gid = granja["galpon"]["id"]
+    ayer = _registro(gid, fecha=date(2026, 10, 14))
+    hoy = _registro(gid)
+    client.put(f"/registros/{ayer['id']}", json=ayer)
+    client.put(f"/registros/{hoy['id']}", json=hoy)
+    ayer["fecha"] = HOY.isoformat()
+    assert client.put(f"/registros/{ayer['id']}", json=ayer).status_code == 409
+
+
 def test_registro_en_galpon_vacio(client, granja):
     datos = _registro(granja["vacio"]["id"])
     assert client.put(f"/registros/{datos['id']}", json=datos).status_code == 422
