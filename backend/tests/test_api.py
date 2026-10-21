@@ -59,6 +59,10 @@ def test_nombre_de_galpon_repetido(client, granja):
     assert r.status_code == 409
 
 
+def test_nombre_de_linea_repetido(client, granja):
+    assert client.post("/lineas", json={"nombre": "Hy-Line Brown"}).status_code == 409
+
+
 def test_no_se_puede_meter_dos_lotes_en_el_mismo_galpon(client, granja):
     r = client.post(
         "/lotes",

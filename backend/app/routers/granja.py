@@ -105,6 +105,8 @@ def resumen_galpones(session: SessionDep, fecha: Annotated[date | None, Query()]
 
 @router.post("/lineas", response_model=schemas.LineaOut, status_code=status.HTTP_201_CREATED)
 def crear_linea(datos: schemas.LineaIn, session: SessionDep):
+    if session.scalar(select(models.LineaGenetica).where(models.LineaGenetica.nombre == datos.nombre)):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"ya existe una línea llamada {datos.nombre}")
     linea = models.LineaGenetica(**datos.model_dump())
     session.add(linea)
     session.commit()
