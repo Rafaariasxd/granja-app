@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -57,7 +57,7 @@ def listar_galpones(session: SessionDep):
 @router.get("/galpones/resumen", response_model=list[schemas.ResumenGalpon])
 def resumen_galpones(session: SessionDep, fecha: Annotated[date | None, Query()] = None):
     """Lo que hoy está en el tablero: cada galpón con su lote, aves y postura del día."""
-    fecha = fecha or date.today()
+    fecha = fecha or fechas.fecha_en_granja(datetime.now(UTC))
     resumen = []
     for galpon in session.scalars(select(models.Galpon).order_by(models.Galpon.nombre)):
         lote = _lote_activo(session, galpon.id, fecha)

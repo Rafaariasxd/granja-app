@@ -1,11 +1,19 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
-from app.dominio.fechas import periodos_se_cruzan
+from app.dominio.fechas import fecha_en_granja, periodos_se_cruzan
 
 ENE = date(2026, 1, 1)
 MAR = date(2026, 3, 1)
 JUN = date(2026, 6, 1)
 SEP = date(2026, 9, 1)
+
+
+def test_de_noche_en_colombia_sigue_siendo_el_mismo_dia():
+    assert fecha_en_granja(datetime(2026, 10, 22, 1, 30, tzinfo=UTC)) == date(2026, 10, 21)
+
+
+def test_de_dia_la_fecha_coincide():
+    assert fecha_en_granja(datetime(2026, 10, 21, 15, 0, tzinfo=UTC)) == date(2026, 10, 21)
 
 
 def test_dos_periodos_abiertos_se_cruzan():
