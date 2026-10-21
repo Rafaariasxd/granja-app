@@ -19,6 +19,16 @@ class RegistroDelDia:
     alimento_kg: float = 0.0
 
 
+def registro_del_dia(uow: UnidadDeTrabajo, galpon_id: int, fecha: date) -> RegistroDiario | None:
+    galpon = uow.galpones.obtener(galpon_id)
+    if galpon is None:
+        raise NoEncontrado(f"el galpón {galpon_id} no existe")
+    lote = lotes.activo_en(uow.lotes.del_galpon(galpon.id), fecha)
+    if lote is None:
+        return None
+    return uow.registros.del_dia(lote.id, fecha)
+
+
 def guardar_registro(uow: UnidadDeTrabajo, datos: RegistroDelDia) -> RegistroDiario:
     """Crea o corrige el registro del día. Es idempotente: el celular puede reenviarlo sin duplicar."""
     galpon = uow.galpones.obtener(datos.galpon_id)

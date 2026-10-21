@@ -201,3 +201,24 @@ def test_lote_cerrado_libera_el_galpon(client, granja):
     client.post(f"/lotes/{lote['id']}/salida", params={"fecha_salida": "2026-10-01"})
     datos = _registro(granja["galpon"]["id"])
     assert client.put(f"/registros/{datos['id']}", json=datos).status_code == 422
+
+
+def test_consultar_el_registro_del_dia(client, granja):
+    gid = granja["galpon"]["id"]
+    datos = _registro(gid, mortalidad=4)
+    client.put(f"/registros/{datos['id']}", json=datos)
+    r = client.get("/registros", params={"galpon_id": gid, "fecha": HOY.isoformat()})
+    assert r.status_code == 200
+    assert [x["id"] for x in r.json()] == [datos["id"]]
+    assert r.json()[0]["mortalidad"] == 4
+
+
+def test_sin_registro_ese_dia_la_lista_viene_vacia(client, granja):
+    r = client.get("/registros", params={"galpon_id": granja["galpon"]["id"], "fecha": HOY.isoformat()})
+    assert r.json() == []
+    vacio = client.get("/registros", params={"galpon_id": granja["vacio"]["id"], "fecha": HOY.isoformat()})
+    assert vacio.json() == []
+
+
+def test_consultar_un_galpon_que_no_existe(client, granja):
+    assert client.get("/registros", params={"galpon_id": 99, "fecha": HOY.isoformat()}).status_code == 404
