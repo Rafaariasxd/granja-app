@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:granja_app/datos/almacen_sqlite.dart';
+import 'package:granja_app/datos/base_local.dart';
 import 'package:granja_app/datos/cola.dart';
 import 'package:granja_app/dominio/modelos.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -62,10 +63,10 @@ void contrato(String nombre, Future<AlmacenCambios> Function() crear, Future<voi
 
 void main() {
   sqfliteFfiInit();
+  Database? db;
   contrato('en memoria', () async => AlmacenEnMemoria(), (_) async {});
-  contrato(
-    'en SQLite',
-    () => AlmacenSqlite.abrir(databaseFactoryFfi, inMemoryDatabasePath),
-    (almacen) => (almacen as AlmacenSqlite).cerrar(),
-  );
+  contrato('en SQLite', () async {
+    db = await abrirBaseLocal(databaseFactoryFfi, inMemoryDatabasePath);
+    return AlmacenSqlite(db!);
+  }, (_) async => db?.close());
 }

@@ -7,7 +7,7 @@ App en Flutter para Android e iOS. Funciona sin señal: guarda en el celular y s
 | Carpeta | Qué tiene |
 | --- | --- |
 | `lib/dominio/` | Modelos y cálculos en Dart puro (edad, etapa, postura, alerta de baja postura, fecha de la granja, id de cada registro). Los mismos resultados que el backend |
-| `lib/datos/` | Cliente de la API (`api_granja.dart`), cola de sincronización (`cola.dart`, `sincronizador.dart`) y la cola guardada en SQLite del celular (`almacen_sqlite.dart`) |
+| `lib/datos/` | Cliente de la API (`api_granja.dart`), cola de sincronización (`cola.dart`, `sincronizador.dart`), último resumen para verlo sin señal (`resumen.dart`) y la base SQLite del celular con las dos tablas (`base_local.dart`, `almacen_sqlite.dart`) |
 | `lib/presentacion/` | Tema visual, lógica del formulario de registro (`formulario_registro.dart`) y pantallas. Las pantallas del boceto se arman cuando se apruebe el diseño |
 
 El dominio no puede importar Flutter ni las otras capas, y los datos no pueden importar la presentación: `test/arquitectura_test.dart` lo revisa.

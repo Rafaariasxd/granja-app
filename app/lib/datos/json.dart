@@ -15,6 +15,18 @@ Map<String, Object> registroAJson(RegistroDiario registro) => {
   'alimento_kg': registro.alimentoKg,
 };
 
+Map<String, Object?> resumenAJson(ResumenGalpon resumen) => {
+  'galpon_id': resumen.galponId,
+  'nombre': resumen.nombre,
+  'capacidad_aves': resumen.capacidadAves,
+  'aves_vivas': resumen.avesVivas,
+  'ocupacion_pct': resumen.ocupacionPct,
+  'lote_id': resumen.loteId,
+  'etapa': resumen.etapa?.name,
+  'edad_semanas': resumen.edadSemanas,
+  'postura_pct': resumen.posturaPct,
+};
+
 ResumenGalpon resumenDesdeJson(Map<String, dynamic> json) {
   final etapa = json['etapa'] as String?;
   return ResumenGalpon(

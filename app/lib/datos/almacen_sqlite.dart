@@ -1,43 +1,20 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../dominio/modelos.dart';
 import 'cola.dart';
 import 'json.dart';
-
-const _crearTabla = '''
-CREATE TABLE cambios (
-  id TEXT PRIMARY KEY,
-  galpon_id INTEGER NOT NULL,
-  fecha TEXT NOT NULL,
-  huevos_total INTEGER NOT NULL,
-  huevos_rotos INTEGER NOT NULL,
-  mortalidad INTEGER NOT NULL,
-  alimento_kg REAL NOT NULL,
-  guardado_en TEXT NOT NULL,
-  estado TEXT NOT NULL,
-  mensaje TEXT,
-  intentos INTEGER NOT NULL
-)
-''';
+import 'resumen.dart';
 
 class AlmacenSqlite implements AlmacenCambios {
-  AlmacenSqlite._(this._db);
+  AlmacenSqlite(this._db);
 
   final Database _db;
 
-  static Future<AlmacenSqlite> abrir(DatabaseFactory fabrica, String ruta) async {
-    final db = await fabrica.openDatabase(
-      ruta,
-      options: OpenDatabaseOptions(version: 1, onCreate: (db, _) => db.execute(_crearTabla)),
-    );
-    return AlmacenSqlite._(db);
-  }
-
-  Future<void> cerrar() => _db.close();
-
   @override
   Future<void> guardar(CambioRegistro cambio) async {
-    await _db.insert('cambios', _aFila(cambio), conflictAlgorithm: ConflictAlgorithm.replace);
+    await _db.insert('cambios', _cambioAFila(cambio), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override
@@ -48,17 +25,46 @@ class AlmacenSqlite implements AlmacenCambios {
       whereArgs: [EstadoEnvio.pendiente.name],
       orderBy: 'guardado_en',
     );
-    return filas.map(_desdeFila).toList();
+    return filas.map(_cambioDesdeFila).toList();
   }
 
   @override
   Future<List<CambioRegistro>> todos() async {
     final filas = await _db.query('cambios', orderBy: 'guardado_en');
-    return filas.map(_desdeFila).toList();
+    return filas.map(_cambioDesdeFila).toList();
   }
 }
 
-Map<String, Object?> _aFila(CambioRegistro cambio) {
+class AlmacenResumenSqlite implements AlmacenResumen {
+  AlmacenResumenSqlite(this._db);
+
+  final Database _db;
+
+  @override
+  Future<void> guardar(ResumenGuardado resumen) async {
+    await _db.insert('resumen', {
+      'id': 1,
+      'fecha': fechaIso(resumen.fecha),
+      'actualizado_en': resumen.actualizadoEn.toUtc().toIso8601String(),
+      'galpones': jsonEncode(resumen.galpones.map(resumenAJson).toList()),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<ResumenGuardado?> ultimo() async {
+    final filas = await _db.query('resumen', where: 'id = ?', whereArgs: [1]);
+    if (filas.isEmpty) return null;
+    final fila = filas.single;
+    final galpones = jsonDecode(fila['galpones']! as String) as List<dynamic>;
+    return ResumenGuardado(
+      fecha: fechaDesdeIso(fila['fecha']! as String),
+      actualizadoEn: DateTime.parse(fila['actualizado_en']! as String),
+      galpones: [for (final g in galpones) resumenDesdeJson(g as Map<String, dynamic>)],
+    );
+  }
+}
+
+Map<String, Object?> _cambioAFila(CambioRegistro cambio) {
   final registro = cambio.registro;
   return {
     'id': registro.id,
@@ -75,7 +81,7 @@ Map<String, Object?> _aFila(CambioRegistro cambio) {
   };
 }
 
-CambioRegistro _desdeFila(Map<String, Object?> fila) => CambioRegistro(
+CambioRegistro _cambioDesdeFila(Map<String, Object?> fila) => CambioRegistro(
   registro: RegistroDiario(
     id: fila['id']! as String,
     galponId: fila['galpon_id']! as int,
