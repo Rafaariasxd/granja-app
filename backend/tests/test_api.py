@@ -145,11 +145,20 @@ def test_resumen_como_el_tablero(client, granja):
     assert lleno["edad_semanas"] == 32
     assert lleno["ocupacion_pct"] == 82.5
     assert lleno["postura_pct"] == 80.8
+    assert lleno["huevos_del_dia"] == 4000
+    assert lleno["linea"] == granja["linea"]["nombre"]
 
     vacio = resumen["Galpón 2"]
     assert vacio["lote_id"] is None
     assert vacio["aves_vivas"] == 0
     assert vacio["postura_pct"] is None
+    assert vacio["huevos_del_dia"] is None and vacio["linea"] is None
+
+
+def test_resumen_sin_registro_hoy_no_trae_huevos(client, granja):
+    resumen = {g["nombre"]: g for g in client.get("/galpones/resumen", params={"fecha": HOY}).json()}
+    assert resumen["Galpón 1"]["huevos_del_dia"] is None
+    assert resumen["Galpón 1"]["linea"] is not None
 
 
 def test_lote_cerrado_libera_el_galpon(client, granja):

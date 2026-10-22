@@ -49,7 +49,12 @@ def ocupacion_pct(aves: int, capacidad: int) -> float:
 
 
 def resumir_galpon(
-    galpon: Galpon, lote: Lote | None, mortalidad_acumulada: int, huevos_del_dia: int | None, fecha: date
+    galpon: Galpon,
+    lote: Lote | None,
+    mortalidad_acumulada: int,
+    huevos_del_dia: int | None,
+    fecha: date,
+    linea: str | None = None,
 ) -> ResumenGalpon:
     if lote is None:
         return ResumenGalpon(
@@ -74,6 +79,8 @@ def resumir_galpon(
         aves_vivas=vivas,
         ocupacion_pct=ocupacion_pct(vivas, galpon.capacidad_aves),
         postura_pct=postura_pct(huevos_del_dia, vivas) if huevos_del_dia is not None else None,
+        linea=linea,
+        huevos_del_dia=huevos_del_dia,
     )
 
 

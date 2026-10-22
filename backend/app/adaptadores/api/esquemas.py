@@ -72,6 +72,8 @@ class ResumenGalponOut(BaseModel):
     aves_vivas: int
     ocupacion_pct: float
     postura_pct: float | None
+    linea: str | None
+    huevos_del_dia: int | None
 
 
 class IngresoIn(BaseModel):
