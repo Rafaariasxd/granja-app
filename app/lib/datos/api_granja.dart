@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../dominio/modelos.dart';
+import '../dominio/sesion.dart';
 import 'json.dart';
 
 sealed class ErrorDeApi implements Exception {
@@ -27,6 +28,22 @@ class DatosRechazados extends ErrorDeApi {
   const DatosRechazados(super.mensaje);
 }
 
+class CredencialesInvalidas extends ErrorDeApi {
+  const CredencialesInvalidas(super.mensaje);
+}
+
+class CuentaBloqueada extends ErrorDeApi {
+  const CuentaBloqueada(super.mensaje);
+}
+
+class SesionVencida extends ErrorDeApi {
+  const SesionVencida() : super('la sesión se cerró, vuelve a entrar');
+}
+
+class SinPermiso extends ErrorDeApi {
+  const SinPermiso(super.mensaje);
+}
+
 class ErrorDelServidor extends ErrorDeApi {
   const ErrorDelServidor(super.mensaje);
 }
@@ -39,10 +56,45 @@ class ApiGranja {
   final Uri base;
   final Duration espera;
   final http.Client _cliente;
+  String? token;
+
+  Future<Sesion> iniciarSesion(String nombre, String pin) async {
+    final respuesta = await _enviar(
+      () => _cliente.post(
+        base.resolve('sesion'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'nombre': nombre, 'pin': pin}),
+      ),
+      alEntrar: true,
+    );
+    final datos = jsonDecode(utf8.decode(respuesta.bodyBytes)) as Map<String, dynamic>;
+    final sesion = Sesion(
+      token: datos['token'] as String,
+      nombre: datos['nombre'] as String,
+      rol: Rol.values.byName(datos['rol'] as String),
+    );
+    token = sesion.token;
+    return sesion;
+  }
+
+  Future<void> cerrarSesion() async {
+    try {
+      await _enviar(() => _cliente.delete(base.resolve('sesion'), headers: _autorizacion()));
+    } on ErrorDeApi catch (_) {
+    } finally {
+      token = null;
+    }
+  }
+
+  Future<void> borrarRegistro(String id) async {
+    await _enviar(() => _cliente.delete(base.resolve('registros/$id'), headers: _autorizacion()));
+  }
+
+  Map<String, String> _autorizacion() => {if (token != null) 'Authorization': 'Bearer $token'};
 
   Future<List<ResumenGalpon>> resumen(DateTime fecha) async {
     final url = base.resolve('galpones/resumen').replace(queryParameters: {'fecha': fechaIso(fecha)});
-    final respuesta = await _enviar(() => _cliente.get(url));
+    final respuesta = await _enviar(() => _cliente.get(url, headers: _autorizacion()));
     final lista = jsonDecode(utf8.decode(respuesta.bodyBytes)) as List<dynamic>;
     return [for (final item in lista) resumenDesdeJson(item as Map<String, dynamic>)];
   }
@@ -51,7 +103,7 @@ class ApiGranja {
     final url = base
         .resolve('registros')
         .replace(queryParameters: {'galpon_id': '$galponId', 'fecha': fechaIso(fecha)});
-    final respuesta = await _enviar(() => _cliente.get(url));
+    final respuesta = await _enviar(() => _cliente.get(url, headers: _autorizacion()));
     final lista = jsonDecode(utf8.decode(respuesta.bodyBytes)) as List<dynamic>;
     if (lista.isEmpty) return null;
     return registroDesdeJson(lista.single as Map<String, dynamic>, galponId);
@@ -61,13 +113,13 @@ class ApiGranja {
     await _enviar(
       () => _cliente.put(
         base.resolve('registros/${registro.id}'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', ..._autorizacion()},
         body: jsonEncode(registroAJson(registro)),
       ),
     );
   }
 
-  Future<http.Response> _enviar(Future<http.Response> Function() peticion) async {
+  Future<http.Response> _enviar(Future<http.Response> Function() peticion, {bool alEntrar = false}) async {
     final http.Response respuesta;
     try {
       respuesta = await peticion().timeout(espera);
@@ -79,6 +131,9 @@ class ApiGranja {
     final codigo = respuesta.statusCode;
     if (codigo >= 200 && codigo < 300) return respuesta;
     final detalle = _detalle(respuesta);
+    if (codigo == 401) throw alEntrar ? CredencialesInvalidas(detalle) : const SesionVencida();
+    if (codigo == 429) throw CuentaBloqueada(detalle);
+    if (codigo == 403) throw SinPermiso(detalle);
     if (codigo == 409) throw RegistroEnConflicto(detalle);
     if (codigo == 404 || codigo == 422) throw DatosRechazados(detalle);
     throw ErrorDelServidor(detalle);

@@ -28,6 +28,8 @@ class Servidor {
 }
 
 void main() {
+  group('sesión', _pruebasDeSesion);
+
   late AlmacenEnMemoria almacen;
   late Servidor servidor;
   late Sincronizador sincronizador;
@@ -128,5 +130,42 @@ void main() {
 
     expect(servidor.pedidos, ['a', 'a']);
     expect((await almacen.todos()).single.estado, EstadoEnvio.enviado);
+  });
+}
+
+void _pruebasDeSesion() {
+  late AlmacenEnMemoria almacen;
+  late Servidor servidor;
+  late Sincronizador sincronizador;
+
+  setUp(() {
+    almacen = AlmacenEnMemoria();
+    servidor = Servidor();
+    sincronizador = Sincronizador(almacen, ApiGranja(base, cliente: servidor.cliente));
+  });
+
+  test('con la sesión vencida no pierde nada y avisa para volver a entrar', () async {
+    await sincronizador.registrar(registro('a'), manana);
+    await sincronizador.registrar(registro('b', galpon: 2), manana);
+    servidor.responder = (_) => respuesta(401, 'no autenticado');
+
+    final resultado = await sincronizador.enviarPendientes();
+
+    expect(resultado.sesionVencida, isTrue);
+    expect(resultado.quedanPendientes, isTrue);
+    expect(servidor.pedidos, ['a']);
+    expect((await almacen.porEnviar()).map((c) => c.registro.id), ['a', 'b']);
+  });
+
+  test('si no tiene permiso, el cambio queda rechazado y sigue con los demás', () async {
+    await sincronizador.registrar(registro('a'), manana);
+    await sincronizador.registrar(registro('b', galpon: 2), manana);
+    servidor.responder = (p) => p.url.pathSegments.last == 'a' ? respuesta(403, 'sin permiso') : respuesta(200);
+
+    final resultado = await sincronizador.enviarPendientes();
+
+    expect(resultado.enviados, 1);
+    final estados = {for (final c in await almacen.todos()) c.registro.id: c.estado};
+    expect(estados, {'a': EstadoEnvio.rechazado, 'b': EstadoEnvio.enviado});
   });
 }

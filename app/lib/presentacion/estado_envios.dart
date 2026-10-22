@@ -16,12 +16,14 @@ class EstadoEnvios extends ChangeNotifier {
   int _enConflicto = 0;
   bool _enviando = false;
   bool _ultimoEnvioFallo = false;
+  bool _sesionVencida = false;
   StreamSubscription<bool>? _conexion;
 
   int get pendientes => _pendientes;
   int get enConflicto => _enConflicto;
   bool get enviando => _enviando;
   bool get ultimoEnvioFallo => _ultimoEnvioFallo;
+  bool get sesionVencida => _sesionVencida;
   bool get todoEnviado => _pendientes == 0 && _enConflicto == 0;
 
   Future<void> guardar(RegistroDiario registro, DateTime ahora) async {
@@ -38,6 +40,7 @@ class EstadoEnvios extends ChangeNotifier {
     try {
       final resultado = await _sincronizador.enviarPendientes();
       _ultimoEnvioFallo = resultado.quedanPendientes;
+      _sesionVencida = resultado.sesionVencida;
       await _contar();
     } finally {
       _enviando = false;

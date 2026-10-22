@@ -3,10 +3,11 @@ import 'api_granja.dart';
 import 'cola.dart';
 
 class ResultadoEnvio {
-  const ResultadoEnvio({required this.enviados, required this.quedanPendientes});
+  const ResultadoEnvio({required this.enviados, required this.quedanPendientes, this.sesionVencida = false});
 
   final int enviados;
   final bool quedanPendientes;
+  final bool sesionVencida;
 }
 
 class Sincronizador {
@@ -29,6 +30,11 @@ class Sincronizador {
         await _almacen.guardar(cambio.con(estado: EstadoEnvio.enConflicto, mensaje: error.mensaje));
       } on DatosRechazados catch (error) {
         await _almacen.guardar(cambio.con(estado: EstadoEnvio.rechazado, mensaje: error.mensaje));
+      } on SinPermiso catch (error) {
+        await _almacen.guardar(cambio.con(estado: EstadoEnvio.rechazado, mensaje: error.mensaje));
+      } on SesionVencida catch (error) {
+        await _almacen.guardar(cambio.con(estado: EstadoEnvio.pendiente, mensaje: error.mensaje));
+        return ResultadoEnvio(enviados: enviados, quedanPendientes: true, sesionVencida: true);
       } on ErrorDeApi catch (error) {
         await _almacen.guardar(cambio.con(estado: EstadoEnvio.pendiente, mensaje: error.mensaje));
         return ResultadoEnvio(enviados: enviados, quedanPendientes: true);
