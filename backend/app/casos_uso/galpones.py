@@ -27,6 +27,7 @@ def resumen_galpones(uow: UnidadDeTrabajo, fecha: date) -> list[ResumenGalpon]:
             resumen.append(produccion.resumir_galpon(galpon, None, 0, None, fecha))
             continue
         registro = uow.registros.del_dia(lote.id, fecha)
+        linea = uow.lineas.obtener(lote.linea_id)
         resumen.append(
             produccion.resumir_galpon(
                 galpon,
@@ -34,6 +35,7 @@ def resumen_galpones(uow: UnidadDeTrabajo, fecha: date) -> list[ResumenGalpon]:
                 uow.registros.mortalidad_hasta(lote.id, fecha),
                 registro.huevos_total if registro else None,
                 fecha,
+                linea.nombre if linea else None,
             )
         )
     return resumen

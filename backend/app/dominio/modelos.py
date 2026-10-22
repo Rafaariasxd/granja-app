@@ -57,6 +57,8 @@ class ResumenGalpon:
     aves_vivas: int
     ocupacion_pct: float
     postura_pct: float | None
+    linea: str | None = None
+    huevos_del_dia: int | None = None
 
 
 class Rol(StrEnum):
