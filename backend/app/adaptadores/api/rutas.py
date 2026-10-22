@@ -49,6 +49,12 @@ def cerrar_lote(lote_id: int, fecha_salida: date, uow: UnidadDep):
     return lotes.cerrar_lote(uow, lote_id, fecha_salida)
 
 
+@router.get("/registros", response_model=list[esquemas.RegistroOut])
+def registros_del_dia(uow: UnidadDep, galpon_id: int, fecha: date):
+    registro = registros.registro_del_dia(uow, galpon_id, fecha)
+    return [registro] if registro else []
+
+
 @router.put("/registros/{registro_id}", response_model=esquemas.RegistroOut)
 def guardar_registro(registro_id: str, datos: esquemas.RegistroIn, uow: UnidadDep):
     if str(datos.id) != registro_id:

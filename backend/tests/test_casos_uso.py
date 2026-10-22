@@ -69,3 +69,9 @@ def test_resumen_del_dia(uow):
     assert resumen["Galpón 1"].aves_vivas == 4950
     assert resumen["Galpón 1"].postura_pct == 80.8
     assert resumen["Galpón 2"].lote_id is None
+
+
+def test_el_registro_del_dia_sale_del_lote_activo(uow):
+    guardado = registros.guardar_registro(uow, _dia())
+    assert registros.registro_del_dia(uow, 1, HOY).id == guardado.id
+    assert registros.registro_del_dia(uow, 2, HOY) is None
