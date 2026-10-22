@@ -20,6 +20,7 @@ python -m venv .venv
 source .venv/bin/activate         # en Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 alembic upgrade head              # crea o actualiza las tablas
+python -m app.crear_admin         # crea el primer usuario administrador (pide nombre y PIN)
 python -m app.datos_ejemplo       # opcional: 7 galpones, 3 lotes y una semana de registros de ejemplo
 uvicorn app.main:app --reload     # documentación de la API en http://localhost:8000/docs
 pytest                            # pruebas
@@ -27,6 +28,14 @@ ruff check . && ruff format .     # lint y formato
 ```
 
 Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, por ejemplo `postgresql+psycopg://usuario:clave@localhost/granja`. Alembic usa la misma variable.
+
+### Usuarios y seguridad
+
+- Se entra con nombre y PIN de 6 dígitos (`POST /sesion`) y se usa el token recibido como `Authorization: Bearer <token>`. Solo `/salud` y `POST /sesion` son públicos.
+- El PIN se guarda con scrypt y sal, nunca en claro. El token se guarda solo como hash SHA-256. Tras 5 PIN incorrectos el usuario se bloquea 15 minutos.
+- Roles: `administrador` (crea galpones, líneas, lotes, usuarios y borra registros) y `registrador` (registra y ve).
+- Borrar un registro (`DELETE /registros/{id}`) y desactivar un usuario quedan en la tabla `bitacora` con quién y cuándo.
+- Los datos viajan por internet: en el servidor solo se debe exponer por HTTPS.
 
 ### Cambiar las tablas
 

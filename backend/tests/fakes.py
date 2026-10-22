@@ -1,7 +1,7 @@
 from dataclasses import replace
 from datetime import date
 
-from app.dominio.modelos import Galpon, LineaGenetica, Lote, RegistroDiario
+from app.dominio.modelos import Evento, Galpon, LineaGenetica, Lote, RegistroDiario, Sesion, Usuario
 
 
 class _Tabla:
@@ -69,6 +69,52 @@ class RegistrosEnMemoria:
     def ultima_fecha(self, lote_id: int) -> date | None:
         return max((r.fecha for r in self.filas.values() if r.lote_id == lote_id), default=None)
 
+    def obtener(self, registro_id):
+        fila = self.filas.get(registro_id)
+        return replace(fila) if fila else None
+
+    def eliminar(self, registro_id) -> None:
+        self.filas.pop(registro_id, None)
+
+
+class UsuariosEnMemoria(_Tabla):
+    def agregar(self, usuario: Usuario) -> Usuario:
+        return self._insertar(usuario)
+
+    def por_nombre(self, nombre: str) -> Usuario | None:
+        return next((replace(u) for u in self.filas.values() if u.nombre == nombre), None)
+
+    def listar(self) -> list[Usuario]:
+        return sorted((replace(u) for u in self.filas.values()), key=lambda u: u.nombre)
+
+    def actualizar(self, usuario: Usuario) -> Usuario:
+        self.filas[usuario.id] = replace(usuario)
+        return replace(usuario)
+
+
+class SesionesEnMemoria(_Tabla):
+    def agregar(self, sesion: Sesion) -> Sesion:
+        return self._insertar(sesion)
+
+    def por_token_hash(self, token_hash: str) -> Sesion | None:
+        return next((replace(s) for s in self.filas.values() if s.token_hash == token_hash), None)
+
+    def revocar(self, sesion_id: int) -> None:
+        self.filas[sesion_id].revocada = True
+
+    def revocar_de_usuario(self, usuario_id: int) -> None:
+        for s in self.filas.values():
+            if s.usuario_id == usuario_id:
+                s.revocada = True
+
+
+class BitacoraEnMemoria(_Tabla):
+    def agregar(self, evento: Evento) -> Evento:
+        return self._insertar(evento)
+
+    def listar(self) -> list[Evento]:
+        return list(self.filas.values())
+
 
 class UnidadEnMemoria:
     def __init__(self) -> None:
@@ -76,6 +122,9 @@ class UnidadEnMemoria:
         self.lineas = LineasEnMemoria()
         self.lotes = LotesEnMemoria()
         self.registros = RegistrosEnMemoria()
+        self.usuarios = UsuariosEnMemoria()
+        self.sesiones = SesionesEnMemoria()
+        self.bitacora = BitacoraEnMemoria()
         self.confirmaciones = 0
 
     def confirmar(self) -> None:
