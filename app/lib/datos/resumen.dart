@@ -41,6 +41,8 @@ class RepositorioResumen {
       final nuevo = ResumenGuardado(fecha: fecha, actualizadoEn: ahora, galpones: await _api.resumen(fecha));
       await _almacen.guardar(nuevo);
       return nuevo;
+    } on SesionVencida {
+      rethrow;
     } on ErrorDeApi {
       final guardado = await _almacen.ultimo();
       if (guardado == null) return null;

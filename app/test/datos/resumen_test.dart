@@ -23,6 +23,8 @@ const conLote = ResumenGalpon(
   etapa: Etapa.produccion,
   edadSemanas: 32,
   posturaPct: 86,
+  linea: 'Hy-Line',
+  huevosDelDia: 2130,
 );
 const vacio = ResumenGalpon(galponId: 2, nombre: 'Galpón 2', capacidadAves: 2000, avesVivas: 0, ocupacionPct: 0);
 
@@ -37,6 +39,8 @@ final jsonDelServidor = [
     'aves_vivas': 2476,
     'ocupacion_pct': 41.3,
     'postura_pct': 86.0,
+    'linea': 'Hy-Line',
+    'huevos_del_dia': 2130,
   },
 ];
 
