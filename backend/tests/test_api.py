@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.adaptadores.api.dependencias import unidad_de_trabajo
 from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
-from app.adaptadores.db.tablas import crear_tablas
+from app.adaptadores.db.tablas import Base
 from app.main import app
 
 HOY = date(2026, 10, 15)
@@ -18,7 +18,7 @@ HOY = date(2026, 10, 15)
 @pytest.fixture
 def client():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    crear_tablas(engine)
+    Base.metadata.create_all(engine)
     Sesion = sessionmaker(bind=engine, expire_on_commit=False)
 
     def unidad_de_prueba():
