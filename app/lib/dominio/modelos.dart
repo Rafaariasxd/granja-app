@@ -68,6 +68,8 @@ class ResumenGalpon {
     this.etapa,
     this.edadSemanas,
     this.posturaPct,
+    this.linea,
+    this.huevosDelDia,
   });
 
   final int galponId;
@@ -79,6 +81,9 @@ class ResumenGalpon {
   final Etapa? etapa;
   final int? edadSemanas;
   final double? posturaPct;
+  final String? linea;
+  final int? huevosDelDia;
 
   bool get vacio => loteId == null;
+  bool get registradoHoy => huevosDelDia != null;
 }

@@ -35,6 +35,8 @@ Map<String, Object?> resumenAJson(ResumenGalpon resumen) => {
   'etapa': resumen.etapa?.name,
   'edad_semanas': resumen.edadSemanas,
   'postura_pct': resumen.posturaPct,
+  'linea': resumen.linea,
+  'huevos_del_dia': resumen.huevosDelDia,
 };
 
 ResumenGalpon resumenDesdeJson(Map<String, dynamic> json) {
@@ -49,5 +51,7 @@ ResumenGalpon resumenDesdeJson(Map<String, dynamic> json) {
     etapa: etapa == null ? null : Etapa.values.byName(etapa),
     edadSemanas: json['edad_semanas'] as int?,
     posturaPct: (json['postura_pct'] as num?)?.toDouble(),
+    linea: json['linea'] as String?,
+    huevosDelDia: json['huevos_del_dia'] as int?,
   );
 }
