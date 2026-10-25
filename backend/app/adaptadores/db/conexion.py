@@ -3,7 +3,15 @@ import os
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./granja.db")
+
+def url_de_base(texto: str) -> str:
+    for prefijo in ("postgres://", "postgresql://"):
+        if texto.startswith(prefijo):
+            return "postgresql+psycopg://" + texto[len(prefijo) :]
+    return texto
+
+
+DATABASE_URL = url_de_base(os.getenv("DATABASE_URL", "sqlite:///./granja.db"))
 
 engine = create_engine(
     DATABASE_URL,

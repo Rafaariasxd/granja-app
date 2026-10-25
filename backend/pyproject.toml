@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.7",
     "uvicorn>=0.30",
     "alembic>=1.14",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]

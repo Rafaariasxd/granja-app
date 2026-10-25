@@ -25,3 +25,51 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest -q
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: granja
+          POSTGRES_PASSWORD: granja
+          POSTGRES_DB: granja
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U granja -d granja"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - name: Migraciones hacia arriba, abajo y otra vez arriba
+        env:
+          DATABASE_URL: postgresql://granja:granja@localhost:5432/granja
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+      - name: Pruebas contra PostgreSQL
+        env:
+          PRUEBAS_DATABASE_URL: postgresql://granja:granja@localhost:5432/pruebas
+        run: |
+          PGPASSWORD=granja psql -h localhost -U granja -d granja -c "CREATE DATABASE pruebas"
+          pytest -q
+
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t granja-api backend
