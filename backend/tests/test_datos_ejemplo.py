@@ -3,7 +3,8 @@ from datetime import date
 import pytest
 
 from app import datos_ejemplo
-from app.casos_uso import galpones
+from app.casos_uso import galpones, inventario, usuarios
+from app.dominio.modelos import Etapa, Rol
 from tests.fakes import UnidadEnMemoria
 
 HOY = date(2026, 10, 21)
@@ -25,3 +26,23 @@ def test_no_carga_sobre_una_base_con_datos():
     datos_ejemplo.cargar(uow, HOY)
     with pytest.raises(SystemExit):
         datos_ejemplo.cargar(uow, HOY)
+
+
+def test_con_un_administrador_carga_tambien_el_inventario():
+    uow = UnidadEnMemoria()
+    usuarios.crear_usuario(uow, "Rafa", "483920", Rol.ADMINISTRADOR)
+    datos_ejemplo.cargar(uow, HOY)
+
+    estado = inventario.estado_inventario(uow, HOY)
+
+    nombres = {e.insumo.nombre for e in estado.existencias}
+    assert {"Maíz", "Soya", "Mezcla ponedora", "Italcol levante"} <= nombres
+    ponedora = next(c for c in estado.etapas if c.etapa == Etapa.PRODUCCION)
+    assert ponedora.consumo_diario_kg > 0
+    assert estado.mezclas[0].limitante
+
+
+def test_sin_administrador_no_carga_inventario():
+    uow = UnidadEnMemoria()
+    datos_ejemplo.cargar(uow, HOY)
+    assert uow.insumos.listar() == []

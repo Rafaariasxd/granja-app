@@ -97,3 +97,48 @@ class TablaEvento(Base):
     detalle: Mapped[str] = mapped_column(Text)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     momento: Mapped[datetime]
+
+
+class TablaInsumo(Base):
+    __tablename__ = "insumos"
+    __table_args__ = (CheckConstraint("kg_por_bulto IS NULL OR kg_por_bulto > 0", name="kg_por_bulto"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    tipo: Mapped[str] = mapped_column(String(30))
+    etapa: Mapped[str | None] = mapped_column(String(20))
+    kg_por_bulto: Mapped[float | None]
+    activo: Mapped[bool] = mapped_column(default=True)
+
+
+class TablaIngrediente(Base):
+    __tablename__ = "formulas_ingredientes"
+    __table_args__ = (
+        UniqueConstraint("producto_id", "insumo_id"),
+        CheckConstraint("porcentaje > 0", name="porcentaje"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))
+    insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))
+    porcentaje: Mapped[float]
+
+
+class TablaMovimiento(Base):
+    __tablename__ = "movimientos_insumo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))
+    fecha: Mapped[date]
+    kg: Mapped[float]
+    motivo: Mapped[str] = mapped_column(String(20))
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    nota: Mapped[str] = mapped_column(Text, default="")
+    registro_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("registros_diarios.id"), unique=True)
+
+
+class TablaAlimentoEnUso(Base):
+    __tablename__ = "alimento_en_uso"
+
+    etapa: Mapped[str] = mapped_column(String(20), primary_key=True)
+    insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))

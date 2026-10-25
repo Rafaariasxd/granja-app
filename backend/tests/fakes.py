@@ -1,7 +1,19 @@
 from dataclasses import replace
 from datetime import date
 
-from app.dominio.modelos import Evento, Galpon, LineaGenetica, Lote, RegistroDiario, Sesion, Usuario
+from app.dominio.modelos import (
+    Etapa,
+    Evento,
+    Galpon,
+    Ingrediente,
+    Insumo,
+    LineaGenetica,
+    Lote,
+    MovimientoInsumo,
+    RegistroDiario,
+    Sesion,
+    Usuario,
+)
 
 
 class _Tabla:
@@ -76,6 +88,9 @@ class RegistrosEnMemoria:
     def eliminar(self, registro_id) -> None:
         self.filas.pop(registro_id, None)
 
+    def entre(self, desde: date, hasta: date) -> list[RegistroDiario]:
+        return [replace(r) for r in self.filas.values() if desde <= r.fecha <= hasta]
+
 
 class UsuariosEnMemoria(_Tabla):
     def agregar(self, usuario: Usuario) -> Usuario:
@@ -116,6 +131,75 @@ class BitacoraEnMemoria(_Tabla):
         return list(self.filas.values())
 
 
+class InsumosEnMemoria(_Tabla):
+    def __init__(self, movimientos: "MovimientosEnMemoria") -> None:
+        super().__init__()
+        self._movimientos = movimientos
+
+    def agregar(self, insumo: Insumo) -> Insumo:
+        return self._insertar(insumo)
+
+    def por_nombre(self, nombre: str) -> Insumo | None:
+        return next((replace(i) for i in self.filas.values() if i.nombre == nombre), None)
+
+    def listar(self) -> list[Insumo]:
+        return sorted((replace(i) for i in self.filas.values()), key=lambda i: i.nombre)
+
+    def stocks(self) -> dict[int, float]:
+        totales: dict[int, float] = {}
+        for m in self._movimientos.filas.values():
+            totales[m.insumo_id] = totales.get(m.insumo_id, 0.0) + m.kg
+        return totales
+
+
+class MovimientosEnMemoria(_Tabla):
+    def agregar(self, movimiento: MovimientoInsumo) -> MovimientoInsumo:
+        return self._insertar(movimiento)
+
+    def guardar_consumo(self, movimiento: MovimientoInsumo) -> None:
+        previo = next((m for m in self.filas.values() if m.registro_id == movimiento.registro_id), None)
+        if previo is None:
+            self._insertar(movimiento)
+        else:
+            self.filas[previo.id] = replace(movimiento, id=previo.id)
+
+    def quitar_consumo(self, registro_id) -> None:
+        for id_ in [m.id for m in self.filas.values() if m.registro_id == registro_id]:
+            del self.filas[id_]
+
+    def del_insumo(self, insumo_id: int, limite: int) -> list[MovimientoInsumo]:
+        propios = [replace(m) for m in self.filas.values() if m.insumo_id == insumo_id]
+        return sorted(propios, key=lambda m: (m.fecha, m.id), reverse=True)[:limite]
+
+
+class FormulasEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict[int, list[Ingrediente]] = {}
+
+    def guardar(self, producto_id: int, ingredientes: list[Ingrediente]) -> None:
+        self.filas[producto_id] = list(ingredientes)
+
+    def de(self, producto_id: int) -> list[Ingrediente]:
+        return list(self.filas.get(producto_id, []))
+
+    def todas(self) -> dict[int, list[Ingrediente]]:
+        return {k: list(v) for k, v in self.filas.items()}
+
+
+class AlimentoEnUsoEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict[Etapa, int] = {}
+
+    def definir(self, etapa: Etapa, insumo_id: int) -> None:
+        self.filas[etapa] = insumo_id
+
+    def de(self, etapa: Etapa) -> int | None:
+        return self.filas.get(etapa)
+
+    def todos(self) -> dict[Etapa, int]:
+        return dict(self.filas)
+
+
 class UnidadEnMemoria:
     def __init__(self) -> None:
         self.galpones = GalponesEnMemoria()
@@ -125,6 +209,10 @@ class UnidadEnMemoria:
         self.usuarios = UsuariosEnMemoria()
         self.sesiones = SesionesEnMemoria()
         self.bitacora = BitacoraEnMemoria()
+        self.movimientos = MovimientosEnMemoria()
+        self.insumos = InsumosEnMemoria(self.movimientos)
+        self.formulas = FormulasEnMemoria()
+        self.alimento_en_uso = AlimentoEnUsoEnMemoria()
         self.confirmaciones = 0
 
     def confirmar(self) -> None:

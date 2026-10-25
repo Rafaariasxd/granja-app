@@ -37,6 +37,17 @@ Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, po
 - Borrar un registro (`DELETE /registros/{id}`) y desactivar un usuario quedan en la tabla `bitacora` con quién y cuándo.
 - Los datos viajan por internet: en el servidor solo se debe exponer por HTTPS.
 
+### Inventario de alimento y materias primas
+
+- Hay tres tipos de insumo: materia prima (maíz, soya, calcio, palmiste, vitaminas...), alimento comprado (Bioconcentrados, Italcol, para pollita, levante o ponedora) y alimento preparado en la finca.
+- Lo que hay en bodega no se guarda como un número suelto: es la suma de movimientos (compra, uso en mezcla, preparación, consumo de los registros del día y ajustes de conteo). Así queda quién hizo cada cambio.
+- Las compras se dan en bultos, también medios (`{"bultos": 0.5}`), o en kilos. Cada insumo sabe cuántos kilos trae su bulto.
+- El alimento preparado tiene una fórmula en porcentajes que suman 100. Preparar `N` kg gasta las materias primas y suma el alimento; si falta alguna, no se prepara y se dice cuál.
+- Por cada etapa (pollita, levante, ponedora) el administrador define el alimento en uso. El registro del día resta de ese alimento los kilos que se comieron, sin repetir el descuento si el celular reenvía el registro, y lo devuelve si el registro se borra.
+- `GET /inventario` calcula los días que alcanza cada cosa con el promedio de consumo de los últimos 7 días con registro, la mezcla que se puede preparar y qué materia prima se acaba primero.
+- Niveles: crítico hasta 2 días, poco hasta 5, bien después.
+- Las fórmulas del ejemplo (`python -m app.datos_ejemplo`, si ya existe un administrador) son de muestra, no las reales.
+
 ### Cambiar las tablas
 
 1. Edita `backend/app/adaptadores/db/tablas.py`.

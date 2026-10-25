@@ -6,14 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.adaptadores.api import esquemas
 from app.adaptadores.api.dependencias import administrador, token_de_sesion, unidad_de_trabajo, usuario_actual
-from app.casos_uso import galpones, lineas, lotes, registros, usuarios
+from app.casos_uso import galpones, inventario, lineas, lotes, registros, usuarios
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import fechas
-from app.dominio.modelos import Lote, Usuario
+from app.dominio.modelos import Etapa, Ingrediente, Lote, Usuario
 
 router = APIRouter()
 protegido = APIRouter(dependencies=[Depends(usuario_actual)])
 SoloAdmin = Annotated[Usuario, Depends(administrador)]
+UsuarioDep = Annotated[Usuario, Depends(usuario_actual)]
 UnidadDep = Annotated[UnidadDeTrabajo, Depends(unidad_de_trabajo)]
 
 
@@ -114,3 +115,66 @@ def crear_usuario(datos: esquemas.UsuarioIn, uow: UnidadDep, _: SoloAdmin):
 @router.post("/usuarios/{usuario_id}/desactivar", response_model=esquemas.UsuarioOut)
 def desactivar_usuario(usuario_id: int, uow: UnidadDep, quien: SoloAdmin):
     return usuarios.desactivar_usuario(uow, quien, usuario_id, fechas.ahora_utc())
+
+
+@protegido.post(
+    "/insumos",
+    response_model=esquemas.InsumoOut,
+    dependencies=[Depends(administrador)],
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_insumo(datos: esquemas.InsumoIn, uow: UnidadDep):
+    return inventario.crear_insumo(uow, datos.nombre, datos.tipo, datos.etapa, datos.kg_por_bulto)
+
+
+@protegido.get("/insumos", response_model=list[esquemas.InsumoOut])
+def listar_insumos(uow: UnidadDep):
+    return inventario.listar_insumos(uow)
+
+
+@protegido.get("/inventario", response_model=esquemas.InventarioOut)
+def estado_inventario(uow: UnidadDep):
+    return inventario.estado_inventario(uow, fechas.fecha_en_granja(datetime.now(UTC)))
+
+
+@protegido.post(
+    "/insumos/{insumo_id}/compras", response_model=esquemas.MovimientoOut, status_code=status.HTTP_201_CREATED
+)
+def registrar_compra(insumo_id: int, datos: esquemas.CompraIn, uow: UnidadDep, quien: UsuarioDep):
+    fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
+    return inventario.registrar_compra(uow, quien, insumo_id, fecha, datos.bultos, datos.kg)
+
+
+@protegido.post("/insumos/{insumo_id}/ajuste", response_model=esquemas.MovimientoOut | None)
+def ajustar_stock(insumo_id: int, datos: esquemas.AjusteIn, uow: UnidadDep, quien: SoloAdmin):
+    fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
+    return inventario.ajustar_stock(uow, quien, insumo_id, fecha, datos.kg_reales, datos.nota)
+
+
+@protegido.get("/insumos/{insumo_id}/movimientos", response_model=list[esquemas.MovimientoOut])
+def movimientos_del_insumo(insumo_id: int, uow: UnidadDep, limite: Annotated[int, Query(ge=1, le=200)] = 50):
+    return inventario.historial(uow, insumo_id, limite)
+
+
+@protegido.get("/alimentos/{producto_id}/formula", response_model=list[esquemas.IngredienteIn])
+def ver_formula(producto_id: int, uow: UnidadDep):
+    return inventario.formula_de(uow, producto_id)
+
+
+@protegido.put("/alimentos/{producto_id}/formula", response_model=list[esquemas.IngredienteIn])
+def definir_formula(producto_id: int, datos: list[esquemas.IngredienteIn], uow: UnidadDep, quien: SoloAdmin):
+    ingredientes = [Ingrediente(i.insumo_id, i.porcentaje) for i in datos]
+    return inventario.definir_formula(uow, quien, producto_id, ingredientes, fechas.ahora_utc())
+
+
+@protegido.post(
+    "/alimentos/{producto_id}/preparaciones", response_model=esquemas.MovimientoOut, status_code=status.HTTP_201_CREATED
+)
+def preparar_alimento(producto_id: int, datos: esquemas.PreparacionIn, uow: UnidadDep, quien: UsuarioDep):
+    fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
+    return inventario.preparar_alimento(uow, quien, producto_id, fecha, datos.kg)
+
+
+@protegido.put("/alimento-en-uso/{etapa}", status_code=status.HTTP_204_NO_CONTENT)
+def definir_alimento_en_uso(etapa: Etapa, datos: esquemas.EnUsoIn, uow: UnidadDep, quien: SoloAdmin):
+    inventario.definir_alimento_en_uso(uow, quien, etapa, datos.insumo_id, fechas.ahora_utc())

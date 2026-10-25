@@ -5,15 +5,34 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.adaptadores.db.tablas import (
+    TablaAlimentoEnUso,
     TablaEvento,
     TablaGalpon,
+    TablaIngrediente,
+    TablaInsumo,
     TablaLinea,
     TablaLote,
+    TablaMovimiento,
     TablaRegistro,
     TablaSesion,
     TablaUsuario,
 )
-from app.dominio.modelos import Evento, Galpon, LineaGenetica, Lote, RegistroDiario, Rol, Sesion, Usuario
+from app.dominio.modelos import (
+    Etapa,
+    Evento,
+    Galpon,
+    Ingrediente,
+    Insumo,
+    LineaGenetica,
+    Lote,
+    Motivo,
+    MovimientoInsumo,
+    RegistroDiario,
+    Rol,
+    Sesion,
+    TipoInsumo,
+    Usuario,
+)
 
 
 def _galpon(fila: TablaGalpon) -> Galpon:
@@ -165,6 +184,10 @@ class RegistrosSql:
     def eliminar(self, registro_id: uuid.UUID) -> None:
         self._session.execute(delete(TablaRegistro).where(TablaRegistro.id == registro_id))
 
+    def entre(self, desde: date, hasta: date) -> list[RegistroDiario]:
+        consulta = select(TablaRegistro).where(TablaRegistro.fecha >= desde, TablaRegistro.fecha <= hasta)
+        return [_registro(f) for f in self._session.scalars(consulta)]
+
 
 def _usuario(fila: TablaUsuario) -> Usuario:
     return Usuario(
@@ -262,6 +285,152 @@ class BitacoraSql:
         return [Evento(f.accion, f.detalle, f.usuario_id, f.momento, f.id) for f in filas]
 
 
+def _insumo(fila: TablaInsumo) -> Insumo:
+    return Insumo(
+        id=fila.id,
+        nombre=fila.nombre,
+        tipo=TipoInsumo(fila.tipo),
+        kg_por_bulto=fila.kg_por_bulto,
+        etapa=Etapa(fila.etapa) if fila.etapa else None,
+        activo=fila.activo,
+    )
+
+
+def _movimiento(fila: TablaMovimiento) -> MovimientoInsumo:
+    return MovimientoInsumo(
+        id=fila.id,
+        insumo_id=fila.insumo_id,
+        fecha=fila.fecha,
+        kg=fila.kg,
+        motivo=Motivo(fila.motivo),
+        usuario_id=fila.usuario_id,
+        nota=fila.nota,
+        registro_id=fila.registro_id,
+    )
+
+
+class InsumosSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, insumo: Insumo) -> Insumo:
+        fila = TablaInsumo(
+            nombre=insumo.nombre,
+            tipo=insumo.tipo.value,
+            etapa=insumo.etapa.value if insumo.etapa else None,
+            kg_por_bulto=insumo.kg_por_bulto,
+            activo=insumo.activo,
+        )
+        self._session.add(fila)
+        self._session.flush()
+        return _insumo(fila)
+
+    def obtener(self, insumo_id: int) -> Insumo | None:
+        fila = self._session.get(TablaInsumo, insumo_id)
+        return _insumo(fila) if fila else None
+
+    def por_nombre(self, nombre: str) -> Insumo | None:
+        fila = self._session.scalar(select(TablaInsumo).where(TablaInsumo.nombre == nombre))
+        return _insumo(fila) if fila else None
+
+    def listar(self) -> list[Insumo]:
+        return [_insumo(f) for f in self._session.scalars(select(TablaInsumo).order_by(TablaInsumo.nombre))]
+
+    def stocks(self) -> dict[int, float]:
+        consulta = select(TablaMovimiento.insumo_id, func.sum(TablaMovimiento.kg)).group_by(TablaMovimiento.insumo_id)
+        return {insumo_id: float(kg) for insumo_id, kg in self._session.execute(consulta)}
+
+
+class MovimientosSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, movimiento: MovimientoInsumo) -> MovimientoInsumo:
+        fila = TablaMovimiento(
+            insumo_id=movimiento.insumo_id,
+            fecha=movimiento.fecha,
+            kg=movimiento.kg,
+            motivo=movimiento.motivo.value,
+            usuario_id=movimiento.usuario_id,
+            nota=movimiento.nota,
+            registro_id=movimiento.registro_id,
+        )
+        self._session.add(fila)
+        self._session.flush()
+        return _movimiento(fila)
+
+    def guardar_consumo(self, movimiento: MovimientoInsumo) -> None:
+        fila = self._session.scalar(
+            select(TablaMovimiento).where(TablaMovimiento.registro_id == movimiento.registro_id)
+        )
+        if fila is None:
+            self.agregar(movimiento)
+            return
+        fila.insumo_id = movimiento.insumo_id
+        fila.fecha = movimiento.fecha
+        fila.kg = movimiento.kg
+        self._session.flush()
+
+    def quitar_consumo(self, registro_id: uuid.UUID) -> None:
+        self._session.execute(delete(TablaMovimiento).where(TablaMovimiento.registro_id == registro_id))
+
+    def del_insumo(self, insumo_id: int, limite: int) -> list[MovimientoInsumo]:
+        consulta = (
+            select(TablaMovimiento)
+            .where(TablaMovimiento.insumo_id == insumo_id)
+            .order_by(TablaMovimiento.fecha.desc(), TablaMovimiento.id.desc())
+            .limit(limite)
+        )
+        return [_movimiento(f) for f in self._session.scalars(consulta)]
+
+
+class FormulasSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, producto_id: int, ingredientes: list[Ingrediente]) -> None:
+        self._session.execute(delete(TablaIngrediente).where(TablaIngrediente.producto_id == producto_id))
+        for ingrediente in ingredientes:
+            self._session.add(
+                TablaIngrediente(
+                    producto_id=producto_id, insumo_id=ingrediente.insumo_id, porcentaje=ingrediente.porcentaje
+                )
+            )
+        self._session.flush()
+
+    def de(self, producto_id: int) -> list[Ingrediente]:
+        consulta = (
+            select(TablaIngrediente).where(TablaIngrediente.producto_id == producto_id).order_by(TablaIngrediente.id)
+        )
+        return [Ingrediente(f.insumo_id, f.porcentaje) for f in self._session.scalars(consulta)]
+
+    def todas(self) -> dict[int, list[Ingrediente]]:
+        formulas: dict[int, list[Ingrediente]] = {}
+        for fila in self._session.scalars(select(TablaIngrediente).order_by(TablaIngrediente.id)):
+            formulas.setdefault(fila.producto_id, []).append(Ingrediente(fila.insumo_id, fila.porcentaje))
+        return formulas
+
+
+class AlimentoEnUsoSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def definir(self, etapa: Etapa, insumo_id: int) -> None:
+        fila = self._session.get(TablaAlimentoEnUso, etapa.value)
+        if fila is None:
+            self._session.add(TablaAlimentoEnUso(etapa=etapa.value, insumo_id=insumo_id))
+        else:
+            fila.insumo_id = insumo_id
+        self._session.flush()
+
+    def de(self, etapa: Etapa) -> int | None:
+        fila = self._session.get(TablaAlimentoEnUso, etapa.value)
+        return fila.insumo_id if fila else None
+
+    def todos(self) -> dict[Etapa, int]:
+        return {Etapa(f.etapa): f.insumo_id for f in self._session.scalars(select(TablaAlimentoEnUso))}
+
+
 class UnidadDeTrabajoSql:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -272,6 +441,10 @@ class UnidadDeTrabajoSql:
         self.usuarios = UsuariosSql(session)
         self.sesiones = SesionesSql(session)
         self.bitacora = BitacoraSql(session)
+        self.insumos = InsumosSql(session)
+        self.movimientos = MovimientosSql(session)
+        self.formulas = FormulasSql(session)
+        self.alimento_en_uso = AlimentoEnUsoSql(session)
 
     def confirmar(self) -> None:
         self._session.commit()
