@@ -409,3 +409,44 @@ def test_si_se_usa_alimento_comprado_la_materia_prima_no_se_gasta(uow, bodega):
 
     assert maiz.consumo_diario_kg is None
     assert maiz.dias is None
+
+
+def test_reenviar_la_misma_compra_no_la_duplica(uow, bodega):
+    operacion = uuid.uuid4()
+    primera = inventario.registrar_compra(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, 2, None, operacion)
+    repetida = inventario.registrar_compra(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, 2, None, operacion)
+
+    assert repetida.id == primera.id
+    assert _stock(uow, bodega["materia"], bodega["maiz"]) == 100
+
+
+def test_dos_compras_con_distinta_operacion_si_suman(uow, bodega):
+    inventario.registrar_compra(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, 1, None, uuid.uuid4())
+    inventario.registrar_compra(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, 1, None, uuid.uuid4())
+
+    assert _stock(uow, bodega["materia"], bodega["maiz"]) == 100
+
+
+def test_reenviar_la_misma_preparacion_no_gasta_dos_veces(uow, bodega):
+    _surtir(uow, bodega)
+    operacion = uuid.uuid4()
+    args = (uow, QUIEN, bodega["mezcla"], bodega["materia"], bodega["dos"], HOY, 500)
+
+    primera = inventario.preparar_alimento(*args, operacion)
+    repetida = inventario.preparar_alimento(*args, operacion)
+
+    assert repetida.id == primera.id
+    assert repetida.motivo == Motivo.PREPARACION
+    assert _stock(uow, bodega["dos"], bodega["mezcla"]) == 500
+    assert _stock(uow, bodega["materia"], bodega["maiz"]) == 200
+
+
+def test_una_preparacion_repetida_responde_bien_aunque_ya_no_alcance_la_materia_prima(uow, bodega):
+    _surtir(uow, bodega, maiz=1, soya=1, calcio=1)
+    operacion = uuid.uuid4()
+    args = (uow, QUIEN, bodega["mezcla"], bodega["materia"], bodega["dos"], HOY, 80)
+    inventario.preparar_alimento(*args, operacion)
+
+    repetida = inventario.preparar_alimento(*args, operacion)
+
+    assert repetida.kg == 80

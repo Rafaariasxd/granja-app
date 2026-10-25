@@ -311,6 +311,7 @@ def _movimiento(fila: TablaMovimiento) -> MovimientoInsumo:
         usuario_id=fila.usuario_id,
         nota=fila.nota,
         registro_id=fila.registro_id,
+        operacion_id=fila.operacion_id,
     )
 
 
@@ -362,6 +363,7 @@ class MovimientosSql:
             usuario_id=movimiento.usuario_id,
             nota=movimiento.nota,
             registro_id=movimiento.registro_id,
+            operacion_id=movimiento.operacion_id,
         )
         self._session.add(fila)
         self._session.flush()
@@ -382,6 +384,12 @@ class MovimientosSql:
 
     def quitar_consumo(self, registro_id: uuid.UUID) -> None:
         self._session.execute(delete(TablaMovimiento).where(TablaMovimiento.registro_id == registro_id))
+
+    def de_operacion(self, operacion_id: uuid.UUID) -> list[MovimientoInsumo]:
+        consulta = (
+            select(TablaMovimiento).where(TablaMovimiento.operacion_id == operacion_id).order_by(TablaMovimiento.id)
+        )
+        return [_movimiento(f) for f in self._session.scalars(consulta)]
 
     def del_insumo(self, insumo_id: int, limite: int) -> list[MovimientoInsumo]:
         consulta = (

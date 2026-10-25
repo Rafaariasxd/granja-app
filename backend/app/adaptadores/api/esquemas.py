@@ -143,6 +143,7 @@ class InsumoOut(BaseModel):
 
 class CompraIn(BaseModel):
     bodega_id: int
+    operacion_id: uuid.UUID | None = None
     fecha: date | None = None
     bultos: float | None = Field(default=None, gt=0)
     kg: float | None = Field(default=None, gt=0)
@@ -156,6 +157,7 @@ class AjusteIn(BaseModel):
 
 
 class PreparacionIn(BaseModel):
+    operacion_id: uuid.UUID | None = None
     desde_bodega_id: int
     hacia_bodega_id: int
     fecha: date | None = None

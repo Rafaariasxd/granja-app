@@ -105,7 +105,10 @@ def registrar_compra(
     fecha: date,
     bultos: float | None,
     kg: float | None,
+    operacion_id: uuid.UUID | None = None,
 ) -> MovimientoInsumo:
+    if operacion_id is not None and (previos := uow.movimientos.de_operacion(operacion_id)):
+        return previos[0]
     insumo = _insumo(uow, insumo_id)
     if insumo.tipo not in reglas.REQUIEREN_BULTO:
         raise DatosInvalidos(f"{insumo.nombre} se prepara en la finca, no se compra")
@@ -116,7 +119,7 @@ def registrar_compra(
     if cantidad <= 0:
         raise DatosInvalidos("la compra debe ser mayor que cero")
     movimiento = uow.movimientos.agregar(
-        MovimientoInsumo(insumo.id, bodega.id, fecha, cantidad, Motivo.COMPRA, quien.id)
+        MovimientoInsumo(insumo.id, bodega.id, fecha, cantidad, Motivo.COMPRA, quien.id, operacion_id=operacion_id)
     )
     uow.confirmar()
     return movimiento
@@ -171,7 +174,12 @@ def preparar_alimento(
     hacia_bodega_id: int,
     fecha: date,
     kg: float,
+    operacion_id: uuid.UUID | None = None,
 ) -> MovimientoInsumo:
+    if operacion_id is not None:
+        for previo in uow.movimientos.de_operacion(operacion_id):
+            if previo.motivo == Motivo.PREPARACION:
+                return previo
     producto = _insumo(uow, producto_id)
     if producto.tipo != TipoInsumo.ALIMENTO_PREPARADO:
         raise DatosInvalidos(f"{producto.nombre} no es un alimento que se prepare en la finca")
@@ -191,9 +199,13 @@ def preparar_alimento(
     nota = f"para {kg} kg de {producto.nombre}"
     for insumo_id, usados in necesidad.items():
         uow.movimientos.agregar(
-            MovimientoInsumo(insumo_id, origen.id, fecha, -usados, Motivo.USO_EN_MEZCLA, quien.id, nota)
+            MovimientoInsumo(
+                insumo_id, origen.id, fecha, -usados, Motivo.USO_EN_MEZCLA, quien.id, nota, operacion_id=operacion_id
+            )
         )
-    hecho = uow.movimientos.agregar(MovimientoInsumo(producto.id, destino.id, fecha, kg, Motivo.PREPARACION, quien.id))
+    hecho = uow.movimientos.agregar(
+        MovimientoInsumo(producto.id, destino.id, fecha, kg, Motivo.PREPARACION, quien.id, operacion_id=operacion_id)
+    )
     uow.confirmar()
     return hecho
 

@@ -151,6 +151,7 @@ class TablaMovimiento(Base):
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
     nota: Mapped[str] = mapped_column(Text, default="")
     registro_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("registros_diarios.id"), unique=True)
+    operacion_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
 
 
 class TablaAlimentoEnUso(Base):
