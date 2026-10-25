@@ -101,12 +101,24 @@ class TipoInsumo(StrEnum):
     ALIMENTO_PREPARADO = "alimento_preparado"
 
 
+class TipoBodega(StrEnum):
+    ALIMENTO = "alimento"
+    MATERIA_PRIMA = "materia_prima"
+
+
 class Motivo(StrEnum):
     COMPRA = "compra"
     PREPARACION = "preparacion"
     USO_EN_MEZCLA = "uso_en_mezcla"
     CONSUMO = "consumo"
     AJUSTE = "ajuste"
+
+
+@dataclass
+class Bodega:
+    nombre: str
+    tipo: TipoBodega
+    id: int | None = None
 
 
 @dataclass
@@ -128,6 +140,7 @@ class Ingrediente:
 @dataclass
 class MovimientoInsumo:
     insumo_id: int
+    bodega_id: int
     fecha: date
     kg: float
     motivo: Motivo
@@ -167,10 +180,19 @@ class MezclaPosible:
     limitante: str
     dias: float | None
     nivel: str
+    origen_id: int
+    origen: str
+
+
+@dataclass(frozen=True)
+class InventarioBodega:
+    bodega: Bodega
+    galpon_ids: list[int]
+    existencias: list[ExistenciaInsumo]
+    etapas: list[CoberturaEtapa]
 
 
 @dataclass(frozen=True)
 class EstadoInventario:
-    existencias: list[ExistenciaInsumo]
-    etapas: list[CoberturaEtapa]
+    bodegas: list[InventarioBodega]
     mezclas: list[MezclaPosible]

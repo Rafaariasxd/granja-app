@@ -3,7 +3,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.dominio.modelos import Etapa, Motivo, Rol, TipoInsumo
+from app.dominio.modelos import Etapa, Motivo, Rol, TipoBodega, TipoInsumo
 
 
 class GalponIn(BaseModel):
@@ -102,6 +102,29 @@ class UsuarioOut(BaseModel):
     activo: bool
 
 
+class BodegaIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=80)
+    tipo: TipoBodega
+
+
+class BodegaOut(BaseModel):
+    id: int
+    nombre: str
+    tipo: TipoBodega
+    galpon_ids: list[int]
+
+
+class BodegaBasicaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    tipo: TipoBodega
+
+
+class GalponesIn(BaseModel):
+    galpon_ids: list[int]
+
+
 class InsumoIn(BaseModel):
     nombre: str = Field(min_length=1, max_length=80)
     tipo: TipoInsumo
@@ -119,18 +142,22 @@ class InsumoOut(BaseModel):
 
 
 class CompraIn(BaseModel):
+    bodega_id: int
     fecha: date | None = None
     bultos: float | None = Field(default=None, gt=0)
     kg: float | None = Field(default=None, gt=0)
 
 
 class AjusteIn(BaseModel):
+    bodega_id: int
     fecha: date | None = None
     kg_reales: float = Field(ge=0)
     nota: str = Field(default="", max_length=200)
 
 
 class PreparacionIn(BaseModel):
+    desde_bodega_id: int
+    hacia_bodega_id: int
     fecha: date | None = None
     kg: float = Field(gt=0)
 
@@ -149,6 +176,7 @@ class MovimientoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     insumo_id: int
+    bodega_id: int
     fecha: date
     kg: float
     motivo: Motivo
@@ -175,6 +203,14 @@ class CoberturaEtapaOut(BaseModel):
     en_uso_id: int | None
 
 
+class InventarioBodegaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    bodega: BodegaBasicaOut
+    galpon_ids: list[int]
+    existencias: list[ExistenciaOut]
+    etapas: list[CoberturaEtapaOut]
+
+
 class MezclaPosibleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     producto_id: int
@@ -185,9 +221,10 @@ class MezclaPosibleOut(BaseModel):
     limitante: str
     dias: float | None
     nivel: str
+    origen_id: int
+    origen: str
 
 
 class InventarioOut(BaseModel):
-    existencias: list[ExistenciaOut]
-    etapas: list[CoberturaEtapaOut]
+    bodegas: list[InventarioBodegaOut]
     mezclas: list[MezclaPosibleOut]
