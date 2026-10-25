@@ -4,6 +4,7 @@ import '../dominio/modelos.dart';
 import '../dominio/resumen_dia.dart';
 import 'estado_envios.dart';
 import 'estado_inicio.dart';
+import 'etiqueta.dart';
 import 'fecha_texto.dart';
 import 'formato.dart';
 import 'tema.dart';
@@ -121,34 +122,6 @@ class _Encabezado extends StatelessWidget {
   }
 }
 
-class _Etiqueta extends StatelessWidget {
-  const _Etiqueta({required this.texto, required this.icono, required this.fondo, required this.color});
-
-  final String texto;
-  final IconData icono;
-  final Color fondo;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icono, size: 18, color: color),
-          const SizedBox(width: 6),
-          Text(
-            texto,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: color),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _EstadoDeEnvio extends StatelessWidget {
   const _EstadoDeEnvio({required this.estado, required this.envios});
 
@@ -158,7 +131,7 @@ class _EstadoDeEnvio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (envios.enConflicto > 0) {
-      return _Etiqueta(
+      return Etiqueta(
         texto: '${envios.enConflicto} por revisar',
         icono: Icons.warning_amber_rounded,
         fondo: Colores.revisarFondo,
@@ -166,7 +139,7 @@ class _EstadoDeEnvio extends StatelessWidget {
       );
     }
     if (envios.pendientes > 0) {
-      return _Etiqueta(
+      return Etiqueta(
         texto: '${envios.pendientes} sin enviar',
         icono: Icons.cloud_off_outlined,
         fondo: Colores.faltaFondo,
@@ -174,14 +147,14 @@ class _EstadoDeEnvio extends StatelessWidget {
       );
     }
     if (estado.sinSenal) {
-      return const _Etiqueta(
+      return const Etiqueta(
         texto: 'Sin señal',
         icono: Icons.cloud_off_outlined,
         fondo: Colores.faltaFondo,
         color: Colores.tintaMedia,
       );
     }
-    return const _Etiqueta(
+    return const Etiqueta(
       texto: 'Todo enviado',
       icono: Icons.cloud_done_outlined,
       fondo: Colores.bienFondo,
@@ -245,7 +218,7 @@ class _Tarjeta extends StatelessWidget {
                     ),
                   )
                 else if (resumen.todoRegistrado)
-                  const _Etiqueta(
+                  const Etiqueta(
                     texto: 'Todo registrado',
                     icono: Icons.check,
                     fondo: Colores.bienFondo,
@@ -297,9 +270,9 @@ class _GalponConLote extends StatelessWidget {
               children: [
                 Expanded(child: Text(galpon.nombre, style: textos.titleLarge)),
                 if (galpon.registradoHoy)
-                  const _Etiqueta(texto: 'Al día', icono: Icons.check, fondo: Colores.bienFondo, color: Colores.monte)
+                  const Etiqueta(texto: 'Al día', icono: Icons.check, fondo: Colores.bienFondo, color: Colores.monte)
                 else
-                  const _Etiqueta(
+                  const Etiqueta(
                     texto: 'Falta hoy',
                     icono: Icons.schedule,
                     fondo: Colores.faltaFondo,

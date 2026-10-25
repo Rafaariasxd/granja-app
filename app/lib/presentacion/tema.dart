@@ -13,6 +13,8 @@ abstract final class Colores {
   static const revisarFondo = Color(0xFFFDF0D5);
   static const revisarTexto = Color(0xFF8A5300);
   static const faltaFondo = Color(0xFFE4E3DC);
+  static const urgenteFondo = Color(0xFFFBE3DF);
+  static const urgenteTexto = Color(0xFF9B2C1F);
 }
 
 ThemeData temaGranja() {

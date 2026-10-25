@@ -8,11 +8,15 @@ import 'datos/almacen_sesion_segura.dart';
 import 'datos/almacen_sqlite.dart';
 import 'datos/api_granja.dart';
 import 'datos/base_local.dart';
+import 'datos/bodega.dart';
 import 'datos/resumen.dart';
 import 'datos/servicio_sesion.dart';
 import 'datos/sincronizador.dart';
 import 'dominio/modelos.dart';
 import 'presentacion/al_reanudar.dart';
+import 'presentacion/bodega.dart';
+import 'presentacion/cascaron.dart';
+import 'presentacion/estado_bodega.dart';
 import 'presentacion/estado_envios.dart';
 import 'presentacion/estado_inicio.dart';
 import 'presentacion/estado_sesion.dart';
@@ -36,21 +40,25 @@ Future<void> main() async {
   final sesion = EstadoSesion(ServicioSesion(api, AlmacenSesionSegura()))..iniciar();
   final envios = EstadoEnvios(Sincronizador(almacen, api), almacen);
   final inicio = EstadoInicio(RepositorioResumen(api, AlmacenResumenSqlite(base)));
+  final bodega = EstadoBodega(RepositorioBodega(api, AlmacenBodegaSqlite(base)));
   void cerrarSiVencio() {
-    if ((envios.sesionVencida || inicio.sesionVencida) && sesion.sesion != null) sesion.sesionVencida();
+    if ((envios.sesionVencida || inicio.sesionVencida || bodega.sesionVencida) && sesion.sesion != null)
+      sesion.sesionVencida();
   }
 
   envios.addListener(cerrarSiVencio);
   inicio.addListener(cerrarSiVencio);
-  runApp(GranjaApp(sesion: sesion, envios: envios, inicio: inicio));
+  bodega.addListener(cerrarSiVencio);
+  runApp(GranjaApp(sesion: sesion, envios: envios, inicio: inicio, bodega: bodega));
 }
 
 class GranjaApp extends StatelessWidget {
-  const GranjaApp({super.key, required this.sesion, required this.envios, required this.inicio});
+  const GranjaApp({super.key, required this.sesion, required this.envios, required this.inicio, required this.bodega});
 
   final EstadoSesion sesion;
   final EstadoEnvios envios;
   final EstadoInicio inicio;
+  final EstadoBodega bodega;
 
   @override
   Widget build(BuildContext context) {
@@ -63,13 +71,18 @@ class GranjaApp extends StatelessWidget {
           alVolver: () {
             envios.enviar();
             inicio.cargar();
+            bodega.cargar();
           },
-          child: InicioPantalla(
-            estado: inicio,
-            envios: envios,
-            nombreUsuario: sesion.sesion?.nombre,
-            alSalir: sesion.salir,
-            alRegistrar: (galpon) => _registrar(contexto, galpon),
+          child: Cascaron(
+            alAbrirBodega: bodega.cargar,
+            granja: InicioPantalla(
+              estado: inicio,
+              envios: envios,
+              nombreUsuario: sesion.sesion?.nombre,
+              alSalir: sesion.salir,
+              alRegistrar: (galpon) => _registrar(contexto, galpon),
+            ),
+            bodega: BodegaPantalla(estado: bodega),
           ),
         ),
       ),
