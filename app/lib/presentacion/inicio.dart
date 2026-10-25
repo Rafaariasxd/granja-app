@@ -15,6 +15,7 @@ class InicioPantalla extends StatefulWidget {
     required this.estado,
     required this.envios,
     required this.alRegistrar,
+    this.alCorregir,
     this.nombreUsuario,
     this.alSalir,
   });
@@ -22,6 +23,7 @@ class InicioPantalla extends StatefulWidget {
   final EstadoInicio estado;
   final EstadoEnvios envios;
   final void Function(ResumenGalpon galpon) alRegistrar;
+  final void Function(ResumenGalpon galpon)? alCorregir;
   final String? nombreUsuario;
   final VoidCallback? alSalir;
 
@@ -67,7 +69,11 @@ class _InicioPantallaState extends State<InicioPantalla> {
                     _Tarjeta(resumen: resumen, alRegistrar: widget.alRegistrar),
                     for (final galpon in resumen.conLote) ...[
                       const SizedBox(height: 14),
-                      _GalponConLote(galpon: galpon, alRegistrar: () => widget.alRegistrar(galpon)),
+                      _GalponConLote(
+                        galpon: galpon,
+                        alRegistrar: () => widget.alRegistrar(galpon),
+                        alCorregir: widget.alCorregir == null ? null : () => widget.alCorregir!(galpon),
+                      ),
                     ],
                     if (resumen.vacios.isNotEmpty) ...[const SizedBox(height: 14), _Vacios(vacios: resumen.vacios)],
                   ],
@@ -245,10 +251,11 @@ String _etapa(Etapa? etapa) => switch (etapa) {
 };
 
 class _GalponConLote extends StatelessWidget {
-  const _GalponConLote({required this.galpon, required this.alRegistrar});
+  const _GalponConLote({required this.galpon, required this.alRegistrar, this.alCorregir});
 
   final ResumenGalpon galpon;
   final VoidCallback alRegistrar;
+  final VoidCallback? alCorregir;
 
   @override
   Widget build(BuildContext context) {
@@ -300,6 +307,15 @@ class _GalponConLote extends StatelessWidget {
                 ],
               ),
             ],
+            if (galpon.registradoHoy && alCorregir != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: alCorregir,
+                  style: TextButton.styleFrom(minimumSize: const Size(0, 48), foregroundColor: Colores.monte),
+                  child: const Text('Corregir', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                ),
+              ),
             if (!galpon.registradoHoy) ...[
               const SizedBox(height: 10),
               FilledButton(

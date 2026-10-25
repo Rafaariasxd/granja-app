@@ -8,11 +8,20 @@ import 'formulario_registro.dart';
 import 'tema.dart';
 
 class RegistroPantalla extends StatefulWidget {
-  const RegistroPantalla({super.key, required this.formulario, required this.envios, this.reloj});
+  const RegistroPantalla({
+    super.key,
+    required this.formulario,
+    required this.envios,
+    this.reloj,
+    this.corrigiendo = false,
+    this.alBorrar,
+  });
 
   final FormularioRegistro formulario;
   final EstadoEnvios envios;
   final DateTime Function()? reloj;
+  final bool corrigiendo;
+  final Future<String?> Function()? alBorrar;
 
   @override
   State<RegistroPantalla> createState() => _RegistroPantallaState();
@@ -22,6 +31,7 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
   late final TextEditingController _huevos;
   late final TextEditingController _alimento;
   bool _guardando = false;
+  String? _errorAlBorrar;
 
   FormularioRegistro get _f => widget.formulario;
 
@@ -44,6 +54,39 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
     final ahora = (widget.reloj ?? DateTime.now)();
     await widget.envios.guardar(_f.aRegistro(), ahora);
     if (mounted) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _borrar() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (contexto) => AlertDialog(
+        title: const Text('¿Borrar este registro?'),
+        content: Text('Se borra el registro de ${_f.galpon.nombre} de hoy. Queda anotado quién lo borró.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(contexto).pop(false), child: const Text('No, dejarlo')),
+          TextButton(
+            onPressed: () => Navigator.of(contexto).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colores.urgenteTexto),
+            child: const Text('Sí, borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !mounted) return;
+    setState(() {
+      _guardando = true;
+      _errorAlBorrar = null;
+    });
+    final error = await widget.alBorrar!();
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _guardando = false;
+        _errorAlBorrar = error;
+      });
+    }
   }
 
   @override
@@ -81,7 +124,10 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
                     children: [
                       Text(galpon.nombre, style: textos.headlineMedium),
                       const SizedBox(height: 4),
-                      Text('Hoy, ${fechaLarga(_f.fecha).toLowerCase()}', style: textos.bodyLarge),
+                      Text(
+                        '${widget.corrigiendo ? 'Corrigiendo el registro de hoy' : 'Hoy'}, ${fechaLarga(_f.fecha).toLowerCase()}',
+                        style: textos.bodyLarge,
+                      ),
                       Text(detalle, style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave)),
                       const SizedBox(height: 14),
                       Card(
@@ -197,6 +243,26 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
                         textAlign: TextAlign.center,
                         style: textos.bodySmall,
                       ),
+                      if (_errorAlBorrar != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _errorAlBorrar!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16, color: Colores.urgenteTexto),
+                        ),
+                      ],
+                      if (widget.alBorrar != null)
+                        TextButton(
+                          onPressed: _guardando ? null : _borrar,
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                            foregroundColor: Colores.urgenteTexto,
+                          ),
+                          child: const Text(
+                            'Borrar este registro',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                          ),
+                        ),
                     ],
                   ),
                 ),

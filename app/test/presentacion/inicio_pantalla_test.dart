@@ -67,6 +67,7 @@ class Montaje {
   late final AlmacenResumenEnMemoria almacenResumen;
   late final EstadoInicio estado;
   final registrados = <String>[];
+  final corregidos = <String>[];
 
   Widget get app => MaterialApp(
     theme: temaGranja(),
@@ -74,6 +75,7 @@ class Montaje {
       estado: estado,
       envios: envios,
       alRegistrar: (g) => registrados.add(g.nombre),
+      alCorregir: (g) => corregidos.add(g.nombre),
       nombreUsuario: 'Mamá',
       alSalir: () {},
     ),
@@ -94,6 +96,9 @@ void main() {
   });
 
   testWidgets('cada galpón con lote dice si ya se registró hoy', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final montaje = Montaje((_) => tablero);
     await tester.pumpWidget(montaje.app);
     await tester.pumpAndSettle();
@@ -105,6 +110,20 @@ void main() {
     expect(find.text('Falta hoy'), findsOneWidget);
     expect(find.text('Hy-Line · 12 semanas · levante · 948 aves'), findsOneWidget);
     expect(find.text('Al día'), findsNWidgets(2));
+  });
+
+  testWidgets('un galpón ya registrado se puede corregir y uno pendiente no', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final montaje = Montaje((_) => tablero);
+    await tester.pumpWidget(montaje.app);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Corregir'), findsNWidgets(2));
+    await tester.tap(find.text('Corregir').first);
+
+    expect(montaje.corregidos, ['Galpón 1']);
   });
 
   testWidgets('los galpones vacíos se juntan en una sola línea y no piden registro', (tester) async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'datos/almacen_sqlite.dart';
 import 'datos/api_granja.dart';
 import 'datos/base_local.dart';
 import 'datos/bodega.dart';
+import 'datos/buscador_registro.dart';
 import 'datos/resumen.dart';
 import 'datos/servicio_sesion.dart';
 import 'datos/sincronizador.dart';
@@ -45,16 +47,35 @@ Future<void> main() async {
     ..vigilar(envios, () => envios.sesionVencida)
     ..vigilar(inicio, () => inicio.sesionVencida)
     ..vigilar(bodega, () => bodega.sesionVencida);
-  runApp(GranjaApp(sesion: sesion, envios: envios, inicio: inicio, bodega: bodega));
+  runApp(
+    GranjaApp(
+      sesion: sesion,
+      envios: envios,
+      inicio: inicio,
+      bodega: bodega,
+      api: api,
+      buscador: BuscadorRegistro(api, almacen),
+    ),
+  );
 }
 
 class GranjaApp extends StatelessWidget {
-  const GranjaApp({super.key, required this.sesion, required this.envios, required this.inicio, required this.bodega});
+  const GranjaApp({
+    super.key,
+    required this.sesion,
+    required this.envios,
+    required this.inicio,
+    required this.bodega,
+    required this.api,
+    required this.buscador,
+  });
 
   final EstadoSesion sesion;
   final EstadoEnvios envios;
   final EstadoInicio inicio;
   final EstadoBodega bodega;
+  final ApiGranja api;
+  final BuscadorRegistro buscador;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +98,7 @@ class GranjaApp extends StatelessWidget {
               nombreUsuario: sesion.sesion?.nombre,
               alSalir: sesion.salir,
               alRegistrar: (galpon) => _registrar(contexto, galpon),
+              alCorregir: (galpon) => _corregir(contexto, galpon),
             ),
             bodega: BodegaPantalla(estado: bodega),
           ),
@@ -93,5 +115,54 @@ class GranjaApp extends StatelessWidget {
       ),
     );
     if (guardado == true) await inicio.cargar();
+  }
+
+  Future<void> _corregir(BuildContext context, ResumenGalpon galpon) async {
+    RegistroEncontrado? encontrado;
+    String? problema;
+    try {
+      encontrado = await buscador.buscar(galpon.galponId, inicio.hoy);
+    } on SinConexion {
+      problema = 'Sin señal: para corregir un registro que ya se envió hace falta internet.';
+    } on ErrorDeApi catch (error) {
+      problema = error.mensaje;
+    }
+    if (!context.mounted) return;
+    if (encontrado == null) {
+      _avisar(context, problema ?? 'No se encontró el registro de hoy de ${galpon.nombre}.');
+      return;
+    }
+    final hallado = encontrado;
+    final puedeBorrar = (sesion.sesion?.esAdministrador ?? false) && !hallado.sinEnviar;
+    final formulario = FormularioRegistro(galpon: galpon, fecha: inicio.hoy, anterior: hallado.registro);
+    final guardado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => RegistroPantalla(
+          formulario: formulario,
+          envios: envios,
+          corrigiendo: true,
+          alBorrar: puedeBorrar ? () => _borrar(hallado.registro.id) : null,
+        ),
+      ),
+    );
+    if (guardado == true) await inicio.cargar();
+  }
+
+  Future<String?> _borrar(String id) async {
+    try {
+      await api.borrarRegistro(id);
+    } on SinConexion {
+      return 'Sin señal: borrar necesita internet.';
+    } on SesionVencida {
+      unawaited(sesion.sesionVencida());
+      return 'La sesión se cerró, vuelve a entrar.';
+    } on ErrorDeApi catch (error) {
+      return error.mensaje;
+    }
+    return null;
+  }
+
+  void _avisar(BuildContext context, String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 }
