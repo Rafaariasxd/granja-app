@@ -40,30 +40,32 @@ class BodegaPantalla extends StatefulWidget {
 }
 
 class _BodegaPantallaState extends State<BodegaPantalla> {
+  int? _elegida;
+
   @override
   void initState() {
     super.initState();
     widget.estado.cargar();
   }
 
-  Future<void> _comprar(Existencia existencia) async {
+  Future<void> _comprar(Bodega bodega, Existencia existencia) async {
     final guardado = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
-      builder: (_) => _HojaCompra(estado: widget.estado, existencia: existencia),
+      builder: (_) => _HojaCompra(estado: widget.estado, bodega: bodega, existencia: existencia),
     );
     if (guardado == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compra guardada')));
     }
   }
 
-  Future<void> _preparar(int productoId, String nombre) async {
+  Future<void> _preparar(MezclaPosible mezcla, List<Bodega> destinos) async {
     final guardado = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
-      builder: (_) => _HojaPreparar(estado: widget.estado, productoId: productoId, nombre: nombre),
+      builder: (_) => _HojaPreparar(estado: widget.estado, mezcla: mezcla, destinos: destinos),
     );
     if (guardado == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preparación guardada')));
@@ -78,6 +80,13 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
         final estado = widget.estado;
         final inventario = estado.inventario;
         final textos = Theme.of(context).textTheme;
+        InventarioBodega? actual;
+        if (inventario != null && !inventario.vacio) {
+          actual = inventario.bodegas.firstWhere(
+            (b) => b.bodega.id == _elegida,
+            orElse: () => inventario.bodegas.first,
+          );
+        }
         return Scaffold(
           body: SafeArea(
             child: RefreshIndicator(
@@ -106,35 +115,20 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
                   const SizedBox(height: 16),
                   if (inventario == null)
                     _SinDatos(cargando: estado.cargando)
-                  else if (inventario.vacio)
+                  else if (actual == null)
                     const _Vacia()
                   else ...[
                     if (inventario.urgentes.isNotEmpty) ...[
                       _Urgentes(urgentes: inventario.urgentes),
                       const SizedBox(height: 16),
                     ],
-                    for (final etapa in inventario.etapas) ...[
-                      _EtapaTarjeta(cobertura: etapa),
-                      const SizedBox(height: 12),
-                    ],
-                    for (final mezcla in inventario.mezclas) ...[
-                      _MezclaTarjeta(mezcla: mezcla, alPreparar: () => _preparar(mezcla.productoId, mezcla.producto)),
-                      const SizedBox(height: 12),
-                    ],
-                    if (inventario.materiasPrimas.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _Lista(titulo: 'Materias primas', items: inventario.materiasPrimas, alPulsar: _comprar),
-                    ],
-                    if (inventario.alimentos.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _Lista(
-                        titulo: 'Alimento',
-                        items: inventario.alimentos,
-                        alPulsar: (e) => e.insumo.tipo == TipoInsumo.alimentoPreparado
-                            ? _preparar(e.insumo.id, e.insumo.nombre)
-                            : _comprar(e),
-                      ),
-                    ],
+                    _Selector(
+                      bodegas: inventario.bodegas,
+                      elegida: actual.bodega.id,
+                      alElegir: (id) => setState(() => _elegida = id),
+                    ),
+                    const SizedBox(height: 16),
+                    ..._contenido(inventario, actual),
                   ],
                 ],
               ),
@@ -144,16 +138,96 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
       },
     );
   }
+
+  List<Widget> _contenido(Inventario inventario, InventarioBodega actual) {
+    final bodega = actual.bodega;
+    final destinos = inventario.deAlimento.map((b) => b.bodega).toList();
+    if (bodega.tipo == TipoBodega.materiaPrima) {
+      return [
+        for (final mezcla in inventario.mezclasDe(bodega.id)) ...[
+          _MezclaTarjeta(mezcla: mezcla, alPreparar: destinos.isEmpty ? null : () => _preparar(mezcla, destinos)),
+          const SizedBox(height: 12),
+        ],
+        _Lista(
+          titulo: 'Materias primas',
+          items: actual.existencias,
+          alPulsar: (e) => _comprar(bodega, e),
+          vacio: 'Todavía no hay materias primas creadas.',
+        ),
+      ];
+    }
+    return [
+      _Galpones(cantidad: actual.galponIds.length),
+      const SizedBox(height: 12),
+      for (final etapa in actual.etapas) ...[_EtapaTarjeta(cobertura: etapa), const SizedBox(height: 12)],
+      _Lista(
+        titulo: 'Alimento',
+        items: actual.existencias,
+        alPulsar: (e) => e.insumo.tipo == TipoInsumo.alimentoComprado ? _comprar(bodega, e) : null,
+        vacio: 'Todavía no hay alimento en esta bodega.',
+      ),
+    ];
+  }
+}
+
+class _Selector extends StatelessWidget {
+  const _Selector({required this.bodegas, required this.elegida, required this.alElegir});
+
+  final List<InventarioBodega> bodegas;
+  final int elegida;
+  final void Function(int id) alElegir;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final b in bodegas)
+          ChoiceChip(
+            label: Text(b.bodega.nombre),
+            selected: b.bodega.id == elegida,
+            onSelected: (_) => alElegir(b.bodega.id),
+            labelStyle: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: b.bodega.id == elegida ? Colors.white : Colores.tinta,
+            ),
+            selectedColor: Colores.monte,
+            backgroundColor: Colors.white,
+            checkmarkColor: Colors.white,
+            side: const BorderSide(color: Colores.borde),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          ),
+      ],
+    );
+  }
+}
+
+class _Galpones extends StatelessWidget {
+  const _Galpones({required this.cantidad});
+
+  final int cantidad;
+
+  @override
+  Widget build(BuildContext context) {
+    final texto = cantidad == 0
+        ? 'Todavía no tiene galpones asignados.'
+        : cantidad == 1
+        ? 'Alimenta 1 galpón.'
+        : 'Alimenta $cantidad galpones.';
+    return Text(texto, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colores.tintaSuave));
+  }
 }
 
 class _Urgentes extends StatelessWidget {
   const _Urgentes({required this.urgentes});
 
-  final List<Existencia> urgentes;
+  final List<(Bodega, Existencia)> urgentes;
 
   @override
   Widget build(BuildContext context) {
-    final nombres = urgentes.map((e) => e.insumo.nombre).join(', ');
+    final nombres = urgentes.map((u) => '${u.$2.insumo.nombre} (${u.$1.nombre})').join(', ');
     return Semantics(
       container: true,
       liveRegion: true,
@@ -228,7 +302,7 @@ class _MezclaTarjeta extends StatelessWidget {
   const _MezclaTarjeta({required this.mezcla, required this.alPreparar});
 
   final MezclaPosible mezcla;
-  final VoidCallback alPreparar;
+  final VoidCallback? alPreparar;
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +316,7 @@ class _MezclaTarjeta extends StatelessWidget {
             Text(mezcla.producto, style: textos.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Listo: ${kilos(mezcla.stockKg)}. Con lo que hay en bodega se pueden preparar '
+              'Listo: ${kilos(mezcla.stockKg)}. Con lo que hay en esta bodega se pueden preparar '
               '${kilos(mezcla.kgPosibles)} más.',
               style: textos.bodyLarge,
             ),
@@ -261,32 +335,40 @@ class _MezclaTarjeta extends StatelessWidget {
 }
 
 class _Lista extends StatelessWidget {
-  const _Lista({required this.titulo, required this.items, required this.alPulsar});
+  const _Lista({required this.titulo, required this.items, required this.alPulsar, required this.vacio});
 
   final String titulo;
   final List<Existencia> items;
   final void Function(Existencia existencia) alPulsar;
+  final String vacio;
 
   @override
   Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(titulo, style: Theme.of(context).textTheme.titleLarge),
+          child: Text(titulo, style: textos.titleLarge),
         ),
-        Card(
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                if (i > 0) const Divider(height: 1, color: Colores.borde),
-                _Fila(existencia: items[i], alPulsar: () => alPulsar(items[i])),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(vacio, style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave)),
+          )
+        else
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, color: Colores.borde),
+                  _Fila(existencia: items[i], alPulsar: () => alPulsar(items[i])),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -310,8 +392,9 @@ class _Fila extends StatelessWidget {
     final textos = Theme.of(context).textTheme;
     final estilo = _estilo(existencia.nivel);
     final dias = existencia.dias;
+    final seCompra = existencia.insumo.tipo != TipoInsumo.alimentoPreparado;
     return InkWell(
-      onTap: alPulsar,
+      onTap: seCompra ? alPulsar : null,
       child: Container(
         constraints: const BoxConstraints(minHeight: 68),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -331,8 +414,7 @@ class _Fila extends StatelessWidget {
                 diasTexto(dias),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: estilo.color),
               ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Colores.tintaSuave),
+            if (seCompra) ...[const SizedBox(width: 4), const Icon(Icons.chevron_right, color: Colores.tintaSuave)],
           ],
         ),
       ),
@@ -381,10 +463,10 @@ class _Vacia extends StatelessWidget {
       padding: const EdgeInsets.only(top: 32),
       child: Column(
         children: [
-          Text('La bodega está vacía', style: textos.titleLarge),
+          Text('No hay bodegas todavía', style: textos.titleLarge),
           const SizedBox(height: 8),
           Text(
-            'El administrador debe crear primero las materias primas y los alimentos.',
+            'El administrador debe crear primero las bodegas, las materias primas y los alimentos.',
             style: textos.bodyLarge,
             textAlign: TextAlign.center,
           ),
@@ -395,9 +477,10 @@ class _Vacia extends StatelessWidget {
 }
 
 class _HojaCompra extends StatefulWidget {
-  const _HojaCompra({required this.estado, required this.existencia});
+  const _HojaCompra({required this.estado, required this.bodega, required this.existencia});
 
   final EstadoBodega estado;
+  final Bodega bodega;
   final Existencia existencia;
 
   @override
@@ -414,7 +497,7 @@ class _HojaCompraState extends State<_HojaCompra> {
       _guardando = true;
       _error = null;
     });
-    final error = await widget.estado.registrarCompra(widget.existencia.insumo.id, _bultos);
+    final error = await widget.estado.registrarCompra(widget.existencia.insumo.id, widget.bodega.id, _bultos);
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context).pop(true);
@@ -438,6 +521,8 @@ class _HojaCompraState extends State<_HojaCompra> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Llegó ${widget.existencia.insumo.nombre}', style: textos.headlineMedium),
+            const SizedBox(height: 4),
+            Text('A ${widget.bodega.nombre}', style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -500,11 +585,11 @@ class _BotonMedio extends StatelessWidget {
 }
 
 class _HojaPreparar extends StatefulWidget {
-  const _HojaPreparar({required this.estado, required this.productoId, required this.nombre});
+  const _HojaPreparar({required this.estado, required this.mezcla, required this.destinos});
 
   final EstadoBodega estado;
-  final int productoId;
-  final String nombre;
+  final MezclaPosible mezcla;
+  final List<Bodega> destinos;
 
   @override
   State<_HojaPreparar> createState() => _HojaPrepararState();
@@ -512,6 +597,7 @@ class _HojaPreparar extends StatefulWidget {
 
 class _HojaPrepararState extends State<_HojaPreparar> {
   final _kg = TextEditingController();
+  late int _destino = widget.destinos.first.id;
   bool _guardando = false;
   String? _error;
 
@@ -526,7 +612,12 @@ class _HojaPrepararState extends State<_HojaPreparar> {
       _guardando = true;
       _error = null;
     });
-    final error = await widget.estado.prepararAlimento(widget.productoId, double.parse(_kg.text));
+    final error = await widget.estado.prepararAlimento(
+      widget.mezcla.productoId,
+      widget.mezcla.origenId,
+      _destino,
+      double.parse(_kg.text),
+    );
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context).pop(true);
@@ -549,7 +640,7 @@ class _HojaPrepararState extends State<_HojaPreparar> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Preparé ${widget.nombre}', style: textos.headlineMedium),
+            Text('Preparé ${widget.mezcla.producto}', style: textos.headlineMedium),
             const SizedBox(height: 16),
             TextField(
               controller: _kg,
@@ -565,8 +656,34 @@ class _HojaPrepararState extends State<_HojaPreparar> {
               ),
               onChanged: (_) => setState(() {}),
             ),
+            if (widget.destinos.length > 1) ...[
+              const SizedBox(height: 16),
+              Text('¿En qué bodega lo guardaste?', style: textos.bodyLarge),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final d in widget.destinos)
+                    ChoiceChip(
+                      label: Text(d.nombre),
+                      selected: d.id == _destino,
+                      onSelected: (_) => setState(() => _destino = d.id),
+                      labelStyle: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: d.id == _destino ? Colors.white : Colores.tinta,
+                      ),
+                      selectedColor: Colores.monte,
+                      backgroundColor: Colors.white,
+                      checkmarkColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
-            Text('Se gasta de las materias primas según la fórmula.', style: textos.bodySmall),
+            Text('Se gasta de ${widget.mezcla.origen} según la fórmula.', style: textos.bodySmall),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: const TextStyle(fontSize: 16, color: Colores.urgenteTexto)),

@@ -4,6 +4,8 @@ enum Nivel { bien, poco, critico, sinDatos }
 
 enum TipoInsumo { materiaPrima, alimentoComprado, alimentoPreparado }
 
+enum TipoBodega { alimento, materiaPrima }
+
 class Insumo {
   const Insumo({required this.id, required this.nombre, required this.tipo, this.etapa, this.kgPorBulto});
 
@@ -12,6 +14,14 @@ class Insumo {
   final TipoInsumo tipo;
   final Etapa? etapa;
   final double? kgPorBulto;
+}
+
+class Bodega {
+  const Bodega({required this.id, required this.nombre, required this.tipo});
+
+  final int id;
+  final String nombre;
+  final TipoBodega tipo;
 }
 
 class Existencia {
@@ -58,6 +68,8 @@ class MezclaPosible {
     required this.kgPosibles,
     required this.limitante,
     required this.nivel,
+    required this.origenId,
+    required this.origen,
     this.dias,
   });
 
@@ -68,29 +80,40 @@ class MezclaPosible {
   final String limitante;
   final double? dias;
   final Nivel nivel;
+  final int origenId;
+  final String origen;
+}
+
+class InventarioBodega {
+  const InventarioBodega({
+    required this.bodega,
+    required this.galponIds,
+    required this.existencias,
+    required this.etapas,
+  });
+
+  final Bodega bodega;
+  final List<int> galponIds;
+  final List<Existencia> existencias;
+  final List<CoberturaEtapa> etapas;
+
+  List<Existencia> get urgentes => existencias.where((e) => e.nivel == Nivel.critico).toList();
 }
 
 class Inventario {
-  const Inventario({required this.existencias, required this.etapas, required this.mezclas});
+  const Inventario({required this.bodegas, required this.mezclas});
 
-  final List<Existencia> existencias;
-  final List<CoberturaEtapa> etapas;
+  final List<InventarioBodega> bodegas;
   final List<MezclaPosible> mezclas;
 
-  List<Existencia> get materiasPrimas => _de(TipoInsumo.materiaPrima);
+  bool get vacio => bodegas.isEmpty;
 
-  List<Existencia> get alimentos => existencias.where((e) => e.insumo.tipo != TipoInsumo.materiaPrima).toList();
+  List<InventarioBodega> get deAlimento => bodegas.where((b) => b.bodega.tipo == TipoBodega.alimento).toList();
 
-  Existencia? existencia(int insumoId) {
-    for (final e in existencias) {
-      if (e.insumo.id == insumoId) return e;
-    }
-    return null;
-  }
+  List<MezclaPosible> mezclasDe(int bodegaId) => mezclas.where((m) => m.origenId == bodegaId).toList();
 
-  List<Existencia> get urgentes => existencias.where((e) => e.nivel == Nivel.critico).toList();
-
-  bool get vacio => existencias.isEmpty;
-
-  List<Existencia> _de(TipoInsumo tipo) => existencias.where((e) => e.insumo.tipo == tipo).toList();
+  List<(Bodega, Existencia)> get urgentes => [
+    for (final b in bodegas)
+      for (final e in b.urgentes) (b.bodega, e),
+  ];
 }

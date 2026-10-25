@@ -40,6 +40,7 @@ ThemeData temaGranja() {
   final forma = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
   return ThemeData(
     useMaterial3: true,
+    fontFamily: 'AtkinsonHyperlegibleNext',
     colorScheme: esquema,
     scaffoldBackgroundColor: Colores.cal,
     textTheme: textos.apply(bodyColor: Colores.tinta, displayColor: Colores.tinta),

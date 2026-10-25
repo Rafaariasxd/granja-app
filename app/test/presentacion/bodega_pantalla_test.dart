@@ -38,42 +38,82 @@ Map<String, Object?> existencia(
   'nivel': nivel,
 };
 
+Map<String, Object?> bodega(
+  int id,
+  String nombre,
+  String tipo,
+  List<Map<String, Object?>> existencias, {
+  List<int> galpones = const [],
+  List<Map<String, Object?>> etapas = const [],
+}) => {
+  'bodega': {'id': id, 'nombre': nombre, 'tipo': tipo},
+  'galpon_ids': galpones,
+  'existencias': existencias,
+  'etapas': etapas,
+};
+
+Map<String, Object?> etapa(String nombre, double stock, double consumo, double dias, String nivel, int enUso) => {
+  'etapa': nombre,
+  'consumo_diario_kg': consumo,
+  'stock_kg': stock,
+  'dias': dias,
+  'nivel': nivel,
+  'en_uso_id': enUso,
+};
+
 final tablero = {
-  'existencias': [
-    existencia(
-      insumo(1, 'Maíz', 'materia_prima', porBulto: 50),
-      675,
-      bultos: 13.5,
-      consumo: 240,
-      dias: 2.8,
-      nivel: 'poco',
+  'bodegas': [
+    bodega(
+      1,
+      'Bodega 1',
+      'alimento',
+      [
+        existencia(
+          insumo(3, 'Mezcla ponedora', 'alimento_preparado', etapa: 'produccion'),
+          1200,
+          consumo: 400,
+          dias: 3,
+          nivel: 'poco',
+        ),
+      ],
+      galpones: [1, 3],
+      etapas: [etapa('produccion', 1200, 400, 3, 'poco', 3)],
     ),
-    existencia(
-      insumo(2, 'Soya', 'materia_prima', porBulto: 40),
-      80,
-      bultos: 2,
-      consumo: 100,
-      dias: 0.8,
-      nivel: 'critico',
+    bodega(
+      2,
+      'Bodega 2',
+      'alimento',
+      [
+        existencia(
+          insumo(4, 'Italcol levante', 'alimento_comprado', etapa: 'levante', porBulto: 40),
+          400,
+          bultos: 10,
+          consumo: 40,
+          dias: 10,
+          nivel: 'bien',
+        ),
+      ],
+      galpones: [5],
+      etapas: [etapa('levante', 400, 40, 10, 'bien', 4)],
     ),
-    existencia(
-      insumo(3, 'Mezcla ponedora', 'alimento_preparado', etapa: 'produccion'),
-      1200,
-      consumo: 400,
-      dias: 3,
-      nivel: 'poco',
-    ),
-    existencia(insumo(4, 'Italcol levante', 'alimento_comprado', etapa: 'levante', porBulto: 40), 400, bultos: 10),
-  ],
-  'etapas': [
-    {
-      'etapa': 'produccion',
-      'consumo_diario_kg': 400.0,
-      'stock_kg': 1200.0,
-      'dias': 3.0,
-      'nivel': 'poco',
-      'en_uso_id': 3,
-    },
+    bodega(3, 'Bodega de materia prima', 'materia_prima', [
+      existencia(
+        insumo(1, 'Maíz', 'materia_prima', porBulto: 50),
+        675,
+        bultos: 13.5,
+        consumo: 240,
+        dias: 2.8,
+        nivel: 'poco',
+      ),
+      existencia(
+        insumo(2, 'Soya', 'materia_prima', porBulto: 40),
+        80,
+        bultos: 2,
+        consumo: 100,
+        dias: 0.8,
+        nivel: 'critico',
+      ),
+    ]),
   ],
   'mezclas': [
     {
@@ -85,6 +125,8 @@ final tablero = {
       'limitante': 'Soya',
       'dias': 3.8,
       'nivel': 'poco',
+      'origen_id': 3,
+      'origen': 'Bodega de materia prima',
     },
   ],
 };
@@ -113,48 +155,72 @@ class Montaje {
 }
 
 Future<void> abrir(WidgetTester tester, Montaje montaje) async {
-  tester.view.physicalSize = const Size(1170, 2532);
-  tester.view.devicePixelRatio = 3;
+  tester.view.physicalSize = const Size(800, 1800);
+  tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(montaje.app);
   await tester.pumpAndSettle();
 }
 
+Future<void> elegir(WidgetTester tester, String nombre) async {
+  await tester.tap(find.widgetWithText(ChoiceChip, nombre));
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('muestra los días que alcanza el alimento de cada etapa', (tester) async {
+  testWidgets('las tres bodegas se eligen arriba y se empieza por la primera', (tester) async {
     await abrir(tester, Montaje());
 
+    expect(find.widgetWithText(ChoiceChip, 'Bodega 1'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Bodega 2'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Bodega de materia prima'), findsOneWidget);
+    expect(find.text('Alimenta 2 galpones.'), findsOneWidget);
     expect(find.text('Ponedora'), findsOneWidget);
-    expect(find.text('3 días'), findsAtLeastNWidgets(1));
-    expect(find.text('Hay 1.200 kg de alimento · se gastan 400 kg al día'), findsOneWidget);
+    expect(find.text('Levante'), findsNothing);
   });
 
-  testWidgets('avisa qué se acaba y qué materia prima limita la mezcla', (tester) async {
+  testWidgets('cada bodega de alimento muestra sus propios días', (tester) async {
+    await abrir(tester, Montaje());
+
+    expect(find.text('3 días'), findsAtLeastNWidgets(1));
+    expect(find.text('Hay 1.200 kg de alimento · se gastan 400 kg al día'), findsOneWidget);
+
+    await elegir(tester, 'Bodega 2');
+
+    expect(find.text('Levante'), findsOneWidget);
+    expect(find.text('10 días'), findsAtLeastNWidgets(1));
+    expect(find.text('Alimenta 1 galpón.'), findsOneWidget);
+    expect(find.text('Hay 400 kg de alimento · se gastan 40 kg al día'), findsOneWidget);
+    expect(find.text('Italcol levante'), findsOneWidget);
+  });
+
+  testWidgets('avisa qué se acaba y en qué bodega', (tester) async {
     await abrir(tester, Montaje());
 
     expect(find.text('Hay que comprar o preparar'), findsOneWidget);
-    expect(find.text('Soya'), findsAtLeastNWidgets(1));
-    expect(find.textContaining('Lo primero que se acaba: Soya'), findsOneWidget);
-    expect(find.textContaining('se pueden preparar 320 kg más'), findsOneWidget);
+    expect(find.text('Soya (Bodega de materia prima)'), findsOneWidget);
   });
 
-  testWidgets('las materias primas dicen los bultos, incluido el medio', (tester) async {
+  testWidgets('la bodega de materia prima muestra la mezcla posible y los bultos', (tester) async {
     await abrir(tester, Montaje());
-    await tester.scrollUntilVisible(find.text('Maíz'), 200);
+    await elegir(tester, 'Bodega de materia prima');
 
+    expect(find.textContaining('Lo primero que se acaba: Soya'), findsOneWidget);
+    expect(find.textContaining('se pueden preparar 320 kg más'), findsOneWidget);
     expect(find.text('13 bultos y medio · 675 kg'), findsOneWidget);
     expect(find.text('2 bultos · 80 kg'), findsOneWidget);
     expect(find.text('2,8 días'), findsOneWidget);
   });
 
-  testWidgets('registrar una compra de medio bulto manda 0.5 bultos', (tester) async {
+  testWidgets('registrar una compra de medio bulto manda la bodega y 0.5 bultos', (tester) async {
     final montaje = Montaje();
     await abrir(tester, montaje);
-    await tester.scrollUntilVisible(find.text('Maíz'), 200);
+    await elegir(tester, 'Bodega de materia prima');
 
     await tester.tap(find.text('Maíz'));
     await tester.pumpAndSettle();
     expect(find.text('Llegó Maíz'), findsOneWidget);
+    expect(find.text('A Bodega de materia prima'), findsOneWidget);
     expect(find.text('1 bulto'), findsOneWidget);
     expect(find.text('Son 50 kg'), findsOneWidget);
 
@@ -171,14 +237,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(montaje.peticiones, contains('POST /insumos/1/compras'));
-    expect(montaje.cuerpos.single, {'bultos': 1.5});
+    expect(montaje.cuerpos.single, {'bodega_id': 3, 'bultos': 1.5});
     expect(find.text('Compra guardada'), findsOneWidget);
     expect(montaje.peticiones.where((p) => p == 'GET /inventario').length, 2);
   });
 
+  testWidgets('el alimento comprado también se compra, en su bodega', (tester) async {
+    final montaje = Montaje();
+    await abrir(tester, montaje);
+    await elegir(tester, 'Bodega 2');
+
+    await tester.tap(find.text('Italcol levante'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Guardar compra'));
+    await tester.pumpAndSettle();
+
+    expect(montaje.peticiones, contains('POST /insumos/4/compras'));
+    expect(montaje.cuerpos.single, {'bodega_id': 2, 'bultos': 1});
+  });
+
+  testWidgets('el alimento preparado no se compra', (tester) async {
+    await abrir(tester, Montaje());
+
+    await tester.tap(find.text('Mezcla ponedora'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guardar compra'), findsNothing);
+  });
+
   testWidgets('no se puede bajar de medio bulto', (tester) async {
     await abrir(tester, Montaje());
-    await tester.scrollUntilVisible(find.text('Maíz'), 200);
+    await elegir(tester, 'Bodega de materia prima');
     await tester.tap(find.text('Maíz'));
     await tester.pumpAndSettle();
 
@@ -188,20 +277,22 @@ void main() {
     expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.remove)).onPressed, isNull);
   });
 
-  testWidgets('preparar alimento manda los kilos', (tester) async {
+  testWidgets('preparar manda los kilos, de dónde sale y a qué bodega va', (tester) async {
     final montaje = Montaje();
     await abrir(tester, montaje);
+    await elegir(tester, 'Bodega de materia prima');
 
     await tester.tap(find.text('Preparé alimento'));
     await tester.pumpAndSettle();
     expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
     await tester.enterText(find.byType(TextField), '500');
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Bodega 2').last);
     await tester.pump();
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
     expect(montaje.peticiones, contains('POST /alimentos/3/preparaciones'));
-    expect(montaje.cuerpos.single, {'kg': 500});
+    expect(montaje.cuerpos.single, {'desde_bodega_id': 3, 'hacia_bodega_id': 2, 'kg': 500});
     expect(find.text('Preparación guardada'), findsOneWidget);
   });
 
@@ -216,6 +307,7 @@ void main() {
           : http.Response.bytes(utf8.encode(jsonEncode(tablero)), 200),
     );
     await abrir(tester, montaje);
+    await elegir(tester, 'Bodega de materia prima');
 
     await tester.tap(find.text('Preparé alimento'));
     await tester.pumpAndSettle();
@@ -237,7 +329,7 @@ void main() {
       },
     );
     await abrir(tester, montaje);
-    await tester.scrollUntilVisible(find.text('Maíz'), 200);
+    await elegir(tester, 'Bodega de materia prima');
     await tester.tap(find.text('Maíz'));
     await tester.pumpAndSettle();
 
@@ -264,13 +356,21 @@ void main() {
     expect(find.text('No hay datos todavía'), findsOneWidget);
   });
 
-  testWidgets('una bodega sin insumos pide que el administrador los cree', (tester) async {
-    await abrir(
-      tester,
-      Montaje(inventario: {'existencias': <Object?>[], 'etapas': <Object?>[], 'mezclas': <Object?>[]}),
-    );
+  testWidgets('sin bodegas pide que el administrador las cree', (tester) async {
+    await abrir(tester, Montaje(inventario: {'bodegas': <Object?>[], 'mezclas': <Object?>[]}));
 
-    expect(find.text('La bodega está vacía'), findsOneWidget);
+    expect(find.text('No hay bodegas todavía'), findsOneWidget);
+  });
+
+  testWidgets('una bodega sin galpones lo dice', (tester) async {
+    final sinGalpones = {
+      'bodegas': [bodega(1, 'Bodega 1', 'alimento', [])],
+      'mezclas': <Object?>[],
+    };
+    await abrir(tester, Montaje(inventario: sinGalpones));
+
+    expect(find.text('Todavía no tiene galpones asignados.'), findsOneWidget);
+    expect(find.text('Todavía no hay alimento en esta bodega.'), findsOneWidget);
   });
 
   testWidgets('con la sesión vencida el estado lo marca', (tester) async {

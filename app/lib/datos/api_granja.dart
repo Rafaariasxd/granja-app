@@ -95,22 +95,27 @@ class ApiGranja {
     return utf8.decode(respuesta.bodyBytes);
   }
 
-  Future<void> registrarCompra(int insumoId, {required double bultos}) async {
+  Future<void> registrarCompra(int insumoId, {required int bodegaId, required double bultos}) async {
     await _enviar(
       () => _cliente.post(
         base.resolve('insumos/$insumoId/compras'),
         headers: {'Content-Type': 'application/json', ..._autorizacion()},
-        body: jsonEncode({'bultos': bultos}),
+        body: jsonEncode({'bodega_id': bodegaId, 'bultos': bultos}),
       ),
     );
   }
 
-  Future<void> prepararAlimento(int productoId, {required double kg}) async {
+  Future<void> prepararAlimento(
+    int productoId, {
+    required int desdeBodegaId,
+    required int haciaBodegaId,
+    required double kg,
+  }) async {
     await _enviar(
       () => _cliente.post(
         base.resolve('alimentos/$productoId/preparaciones'),
         headers: {'Content-Type': 'application/json', ..._autorizacion()},
-        body: jsonEncode({'kg': kg}),
+        body: jsonEncode({'desde_bodega_id': desdeBodegaId, 'hacia_bodega_id': haciaBodegaId, 'kg': kg}),
       ),
     );
   }

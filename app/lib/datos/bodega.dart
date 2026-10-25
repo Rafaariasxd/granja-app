@@ -55,9 +55,11 @@ class RepositorioBodega {
     }
   }
 
-  Future<void> registrarCompra(int insumoId, double bultos) => _api.registrarCompra(insumoId, bultos: bultos);
+  Future<void> registrarCompra(int insumoId, int bodegaId, double bultos) =>
+      _api.registrarCompra(insumoId, bodegaId: bodegaId, bultos: bultos);
 
-  Future<void> prepararAlimento(int productoId, double kg) => _api.prepararAlimento(productoId, kg: kg);
+  Future<void> prepararAlimento(int productoId, int desdeBodegaId, int haciaBodegaId, double kg) =>
+      _api.prepararAlimento(productoId, desdeBodegaId: desdeBodegaId, haciaBodegaId: haciaBodegaId, kg: kg);
 
   Inventario _leer(String datos) => inventarioDesdeJson(jsonDecode(datos) as Map<String, dynamic>);
 }
