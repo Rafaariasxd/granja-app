@@ -223,3 +223,19 @@ def test_las_plantillas_traen_curvas_completas_y_un_plan_ordenado():
         assert all(p.postura_pct == 0 for p in curva if p.semana < 18)
     for nombre, tipo, ideal, maximo, _ in plantillas.PLAN_PONEDORAS:
         validar_tarea(TareaPlan(1, nombre, tipo, ideal, maximo))
+
+
+def test_cada_alerta_trae_que_revisar_y_el_peso_depende_de_si_es_bajo_o_alto():
+    postura = ComparacionPostura(date(2026, 10, 15), 80.0, 94.0)
+    baja = _alertas(baja_postura_hoy=postura, dias_bajos=3)[0]
+    assert any("agua" in r for r in baja.recomendaciones)
+    assert any("veterinario" in r for r in baja.recomendaciones)
+    assert _alertas(muertas_7_dias=20)[0].recomendaciones
+    pollitas = _alertas(edad=3, dias_sin_pesar=1)[0]
+    assert pollitas.recomendaciones
+    bajo = ComparacionPeso(date(2026, 10, 1), 1100, 1300, -15.4, NivelPeso.BAJO)
+    alto = ComparacionPeso(date(2026, 10, 1), 1500, 1300, 15.4, NivelPeso.ALTO)
+    de_bajo = _alertas(edad=15, peso=bajo)[0].recomendaciones
+    de_alto = _alertas(edad=15, peso=alto)[0].recomendaciones
+    assert de_bajo != de_alto
+    assert all(a.recomendaciones for a in _alertas(edad=5, tareas=tareas_del_lote([GUMBORO], [], 5, 0)))

@@ -2,7 +2,7 @@
 
 import uuid
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
 
@@ -128,6 +128,58 @@ class Alerta:
     nivel: Nivel
     titulo: str
     detalle: str
+    recomendaciones: tuple[str, ...] = ()
+
+
+RECOMENDACIONES = {
+    TipoAlerta.BAJA_POSTURA: (
+        "Revisar que haya agua limpia y suficiente en todo el galpón.",
+        "Mirar si comieron menos en los últimos días.",
+        "Buscar calor o frío fuerte, o cambios bruscos de temperatura.",
+        "Las horas de luz no deben reducirse cuando las aves están en postura.",
+        "Pensar en lo que pudo estresarlas: ruidos, animales, cambio de alimento o una vacunación reciente.",
+        "Ver si hay aves decaídas, con diarrea, estornudos o cresta pálida. Si las hay, avisar al veterinario.",
+        "Revisar el alimento: que tenga calcio suficiente y que no esté húmedo ni con hongos.",
+    ),
+    TipoAlerta.MORTALIDAD: (
+        "Retirar las aves muertas y anotar cuántas son cada día.",
+        "Buscar diarrea, estornudos, plumas erizadas o cresta pálida o azulada.",
+        "Revisar el agua, el calor y la ventilación.",
+        "Si sigue subiendo, llamar al veterinario y guardar aves recién muertas por si hace falta una necropsia.",
+    ),
+    TipoAlerta.VACUNA_ATRASADA: (
+        "Aplicarla lo antes posible. Si pasó mucho tiempo, preguntar al veterinario cómo seguir.",
+        "No vacunar aves enfermas sin consultar antes.",
+        "Marcarla en la app cuando se aplique para que se quite la alerta.",
+    ),
+    TipoAlerta.VACUNA_AHORA: (
+        "Tener la vacuna refrigerada y revisar que no esté vencida.",
+        "Vacunar en las horas frescas del día.",
+        "Marcarla en la app cuando se aplique.",
+    ),
+    TipoAlerta.POLLITAS: (
+        "El calor se nota en cómo se mueven: si se amontonan tienen frío, si se alejan jadeando tienen calor.",
+        "Agua y alimento siempre al alcance, y cama seca.",
+        "Revisar cada día que todas coman y anotar la mortalidad.",
+    ),
+    TipoAlerta.SIN_PESAR: ("Pesar una muestra de aves al azar, a la misma hora, y anotar el promedio.",),
+}
+
+RECOMENDACIONES_PESO = {
+    NivelPeso.BAJO: (
+        "Revisar que todas alcancen comedero y bebedero, sin exceso de aves.",
+        "Comprobar que el alimento sea el de la etapa y que no falte.",
+        "Pesar una muestra más grande para confirmar. Si hay mucha diferencia entre aves, consultar al veterinario.",
+    ),
+    NivelPeso.ATENCION: (
+        "Revisar el consumo de alimento y que todas alcancen comedero y bebedero.",
+        "Volver a pesar en una semana para ver si se recuperan.",
+    ),
+    NivelPeso.ALTO: (
+        "Revisar que no se esté dando más alimento del que corresponde.",
+        "Volver a pesar en una semana para confirmar.",
+    ),
+}
 
 
 def validar_tarea(tarea: TareaPlan) -> None:
@@ -327,7 +379,13 @@ def alertas_del_lote(
         alertas.append(
             Alerta(**donde, tipo=TipoAlerta.MORTALIDAD, nivel=nivel, titulo="Mortalidad alta", detalle=detalle)
         )
-    return alertas
+    return [replace(a, recomendaciones=_recomendaciones(a, peso)) for a in alertas]
+
+
+def _recomendaciones(alerta: Alerta, peso: ComparacionPeso | None) -> tuple[str, ...]:
+    if alerta.tipo == TipoAlerta.PESO and peso is not None:
+        return RECOMENDACIONES_PESO[peso.nivel]
+    return RECOMENDACIONES.get(alerta.tipo, ())
 
 
 def ordenar_alertas(alertas: Iterable[Alerta]) -> list[Alerta]:

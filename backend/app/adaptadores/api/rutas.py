@@ -267,9 +267,21 @@ def registrar_compra(insumo_id: int, datos: esquemas.CompraIn, uow: UnidadDep, q
 
 
 @protegido.post("/insumos/{insumo_id}/ajuste", response_model=esquemas.MovimientoOut | None)
-def ajustar_stock(insumo_id: int, datos: esquemas.AjusteIn, uow: UnidadDep, quien: SoloAdmin):
+def ajustar_stock(insumo_id: int, datos: esquemas.AjusteIn, uow: UnidadDep, quien: UsuarioDep):
     fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
-    return inventario.ajustar_stock(uow, quien, insumo_id, datos.bodega_id, fecha, datos.kg_reales, datos.nota)
+    return inventario.ajustar_stock(
+        uow, quien, insumo_id, datos.bodega_id, fecha, datos.bultos_reales, datos.kg_reales, datos.nota
+    )
+
+
+@protegido.post(
+    "/insumos/{insumo_id}/gastos", response_model=esquemas.MovimientoOut, status_code=status.HTTP_201_CREATED
+)
+def registrar_gasto(insumo_id: int, datos: esquemas.GastoIn, uow: UnidadDep, quien: UsuarioDep):
+    fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
+    return inventario.registrar_gasto(
+        uow, quien, insumo_id, datos.bodega_id, fecha, datos.bultos, datos.kg, datos.nota, datos.operacion_id
+    )
 
 
 @protegido.get("/insumos/{insumo_id}/movimientos", response_model=list[esquemas.MovimientoOut])

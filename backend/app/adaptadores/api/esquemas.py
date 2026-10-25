@@ -160,7 +160,17 @@ class CompraIn(BaseModel):
 class AjusteIn(BaseModel):
     bodega_id: int
     fecha: date | None = None
-    kg_reales: float = Field(ge=0)
+    bultos_reales: float | None = Field(default=None, ge=0)
+    kg_reales: float | None = Field(default=None, ge=0)
+    nota: str = Field(default="", max_length=200)
+
+
+class GastoIn(BaseModel):
+    bodega_id: int
+    operacion_id: uuid.UUID | None = None
+    fecha: date | None = None
+    bultos: float | None = Field(default=None, gt=0)
+    kg: float | None = Field(default=None, gt=0)
     nota: str = Field(default="", max_length=200)
 
 
@@ -329,6 +339,7 @@ class AlertaOut(BaseModel):
     nivel: Nivel
     titulo: str
     detalle: str
+    recomendaciones: list[str]
 
 
 class SanidadGalponOut(BaseModel):

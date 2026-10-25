@@ -186,7 +186,7 @@ def test_alimento_en_uso_de_otra_etapa_es_422(client, bodega):
     assert client.put(ruta, json={"insumo_id": bodega["italcol"]["id"]}).status_code == 422
 
 
-def test_el_registrador_compra_y_prepara_pero_no_configura(client, bodega, mama):  # noqa: F811
+def test_el_registrador_compra_prepara_cuenta_y_gasta_pero_no_configura(client, bodega, mama):  # noqa: F811
     maiz, soya = bodega["maiz"], bodega["soya"]
     assert mama.get("/inventario").status_code == 200
     assert mama.get("/bodegas").status_code == 200
@@ -200,8 +200,6 @@ def test_el_registrador_compra_y_prepara_pero_no_configura(client, bodega, mama)
     assert mama.post("/insumos", json=nuevo).status_code == 403
     assert mama.post("/bodegas", json={"nombre": "Otra", "tipo": "alimento"}).status_code == 403
     assert mama.put(f"/bodegas/{bodega['uno']['id']}/galpones", json={"galpon_ids": []}).status_code == 403
-    ajuste = {"bodega_id": bodega["materia"]["id"], "kg_reales": 1}
-    assert mama.post(f"/insumos/{maiz['id']}/ajuste", json=ajuste).status_code == 403
     assert mama.put(f"/alimentos/{bodega['mezcla']['id']}/formula", json=[]).status_code == 403
     ruta = f"/bodegas/{bodega['uno']['id']}/alimento-en-uso/produccion"
     assert mama.put(ruta, json={"insumo_id": bodega["mezcla"]["id"]}).status_code == 403
@@ -251,3 +249,37 @@ def test_una_operacion_que_no_es_uuid_es_422(client, bodega):
         json={"bodega_id": bodega["materia"]["id"], "bultos": 1, "operacion_id": "abc"},
     )
     assert r.status_code == 422
+
+
+def test_el_conteo_se_puede_dar_en_bultos_y_lo_puede_hacer_el_registrador(client, bodega, mama):  # noqa: F811
+    _compra(client, bodega["maiz"], bodega["materia"], bultos=4)
+    ruta = f"/insumos/{bodega['maiz']['id']}/ajuste"
+    cuerpo = {"bodega_id": bodega["materia"]["id"], "bultos_reales": 3.5, "nota": "conteo"}
+    assert mama.post(ruta, json=cuerpo).json()["kg"] == -25
+    assert _existencia(client, bodega["materia"], bodega["maiz"])["bultos"] == 3.5
+    ambos = {"bodega_id": bodega["materia"]["id"], "bultos_reales": 1, "kg_reales": 50}
+    assert mama.post(ruta, json=ambos).status_code == 422
+    ninguno = {"bodega_id": bodega["materia"]["id"]}
+    assert mama.post(ruta, json=ninguno).status_code == 422
+    en_bultos = {"bodega_id": bodega["uno"]["id"], "bultos_reales": 2}
+    assert mama.post(f"/insumos/{bodega['mezcla']['id']}/ajuste", json=en_bultos).status_code == 422
+
+
+def test_el_gasto_descuenta_bultos_es_idempotente_y_no_deja_gastar_de_mas(client, bodega, mama):  # noqa: F811
+    italcol, uno = bodega["italcol"], bodega["uno"]
+    _compra(client, italcol, uno, bultos=10)
+    ruta = f"/insumos/{italcol['id']}/gastos"
+    operacion = str(uuid.uuid4())
+    cuerpo = {"bodega_id": uno["id"], "bultos": 2.5, "nota": "se mojaron", "operacion_id": operacion}
+    r = mama.post(ruta, json=cuerpo)
+    assert (r.status_code, r.json()["kg"], r.json()["motivo"]) == (201, -100, "gasto")
+    assert mama.post(ruta, json=cuerpo).json()["id"] == r.json()["id"]
+    assert _existencia(client, uno, italcol)["bultos"] == 7.5
+
+    de_mas = {"bodega_id": uno["id"], "bultos": 8}
+    mucho = mama.post(ruta, json=de_mas)
+    assert mucho.status_code == 422
+    assert "quedan 300" in mucho.json()["detail"]
+    assert mama.post(ruta, json={"bodega_id": uno["id"]}).status_code == 422
+    assert mama.post(ruta, json={"bodega_id": uno["id"], "kg": 40}).status_code == 201
+    assert _existencia(client, uno, italcol)["bultos"] == 6.5
