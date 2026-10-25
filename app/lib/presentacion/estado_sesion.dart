@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../datos/api_granja.dart';
@@ -47,6 +49,12 @@ class EstadoSesion extends ChangeNotifier {
     await _servicio.salir();
     _error = null;
     notifyListeners();
+  }
+
+  void vigilar(Listenable fuente, bool Function() vencida) {
+    fuente.addListener(() {
+      if (vencida() && sesion != null) unawaited(sesionVencida());
+    });
   }
 
   Future<void> sesionVencida() async {

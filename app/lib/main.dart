@@ -41,14 +41,10 @@ Future<void> main() async {
   final envios = EstadoEnvios(Sincronizador(almacen, api), almacen);
   final inicio = EstadoInicio(RepositorioResumen(api, AlmacenResumenSqlite(base)));
   final bodega = EstadoBodega(RepositorioBodega(api, AlmacenBodegaSqlite(base)));
-  void cerrarSiVencio() {
-    if ((envios.sesionVencida || inicio.sesionVencida || bodega.sesionVencida) && sesion.sesion != null)
-      sesion.sesionVencida();
-  }
-
-  envios.addListener(cerrarSiVencio);
-  inicio.addListener(cerrarSiVencio);
-  bodega.addListener(cerrarSiVencio);
+  sesion
+    ..vigilar(envios, () => envios.sesionVencida)
+    ..vigilar(inicio, () => inicio.sesionVencida)
+    ..vigilar(bodega, () => bodega.sesionVencida);
   runApp(GranjaApp(sesion: sesion, envios: envios, inicio: inicio, bodega: bodega));
 }
 

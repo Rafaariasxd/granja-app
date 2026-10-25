@@ -36,6 +36,7 @@ class EstadoEnvios extends ChangeNotifier {
   Future<void> enviar() async {
     if (_enviando) return;
     _enviando = true;
+    _sesionVencida = false;
     notifyListeners();
     try {
       final resultado = await _sincronizador.enviarPendientes();

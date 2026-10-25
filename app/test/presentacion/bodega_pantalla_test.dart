@@ -265,7 +265,10 @@ void main() {
   });
 
   testWidgets('una bodega sin insumos pide que el administrador los cree', (tester) async {
-    await abrir(tester, Montaje(inventario: {'existencias': [], 'etapas': [], 'mezclas': []}));
+    await abrir(
+      tester,
+      Montaje(inventario: {'existencias': <Object?>[], 'etapas': <Object?>[], 'mezclas': <Object?>[]}),
+    );
 
     expect(find.text('La bodega está vacía'), findsOneWidget);
   });
