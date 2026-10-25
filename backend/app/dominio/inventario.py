@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 
 from app.dominio.errores import DatosInvalidos
-from app.dominio.modelos import Etapa, Ingrediente, TipoInsumo
+from app.dominio.modelos import Etapa, Ingrediente, TipoBodega, TipoInsumo
 
 DIAS_CRITICO = 2
 DIAS_POCO = 5
@@ -18,6 +18,10 @@ NIVEL_SIN_DATOS = "sin_datos"
 
 REQUIEREN_BULTO = (TipoInsumo.MATERIA_PRIMA, TipoInsumo.ALIMENTO_COMPRADO)
 SON_ALIMENTO = (TipoInsumo.ALIMENTO_COMPRADO, TipoInsumo.ALIMENTO_PREPARADO)
+
+
+def tipo_de_bodega_para(tipo: TipoInsumo) -> TipoBodega:
+    return TipoBodega.MATERIA_PRIMA if tipo == TipoInsumo.MATERIA_PRIMA else TipoBodega.ALIMENTO
 
 
 def validar_insumo(tipo: TipoInsumo, etapa: Etapa | None, kg_por_bulto: float | None) -> None:

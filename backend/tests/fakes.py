@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import date
 
 from app.dominio.modelos import (
+    Bodega,
     Etapa,
     Evento,
     Galpon,
@@ -145,10 +146,11 @@ class InsumosEnMemoria(_Tabla):
     def listar(self) -> list[Insumo]:
         return sorted((replace(i) for i in self.filas.values()), key=lambda i: i.nombre)
 
-    def stocks(self) -> dict[int, float]:
-        totales: dict[int, float] = {}
+    def stocks(self) -> dict[tuple[int, int], float]:
+        totales: dict[tuple[int, int], float] = {}
         for m in self._movimientos.filas.values():
-            totales[m.insumo_id] = totales.get(m.insumo_id, 0.0) + m.kg
+            clave = (m.bodega_id, m.insumo_id)
+            totales[clave] = totales.get(clave, 0.0) + m.kg
         return totales
 
 
@@ -188,16 +190,42 @@ class FormulasEnMemoria:
 
 class AlimentoEnUsoEnMemoria:
     def __init__(self) -> None:
-        self.filas: dict[Etapa, int] = {}
+        self.filas: dict[tuple[int, Etapa], int] = {}
 
-    def definir(self, etapa: Etapa, insumo_id: int) -> None:
-        self.filas[etapa] = insumo_id
+    def definir(self, bodega_id: int, etapa: Etapa, insumo_id: int) -> None:
+        self.filas[(bodega_id, etapa)] = insumo_id
 
-    def de(self, etapa: Etapa) -> int | None:
-        return self.filas.get(etapa)
+    def de(self, bodega_id: int, etapa: Etapa) -> int | None:
+        return self.filas.get((bodega_id, etapa))
 
-    def todos(self) -> dict[Etapa, int]:
+    def todos(self) -> dict[tuple[int, Etapa], int]:
         return dict(self.filas)
+
+
+class BodegasEnMemoria(_Tabla):
+    def __init__(self) -> None:
+        super().__init__()
+        self.asignaciones: dict[int, int] = {}
+
+    def agregar(self, bodega: Bodega) -> Bodega:
+        return self._insertar(bodega)
+
+    def por_nombre(self, nombre: str) -> Bodega | None:
+        return next((replace(b) for b in self.filas.values() if b.nombre == nombre), None)
+
+    def listar(self) -> list[Bodega]:
+        return sorted((replace(b) for b in self.filas.values()), key=lambda b: b.id)
+
+    def asignar_galpones(self, bodega_id: int, galpon_ids: list[int]) -> None:
+        self.asignaciones = {g: b for g, b in self.asignaciones.items() if b != bodega_id and g not in galpon_ids}
+        for galpon_id in galpon_ids:
+            self.asignaciones[galpon_id] = bodega_id
+
+    def galpones_de(self, bodega_id: int) -> list[int]:
+        return sorted(g for g, b in self.asignaciones.items() if b == bodega_id)
+
+    def de_galpon(self, galpon_id: int) -> int | None:
+        return self.asignaciones.get(galpon_id)
 
 
 class UnidadEnMemoria:
@@ -210,6 +238,7 @@ class UnidadEnMemoria:
         self.sesiones = SesionesEnMemoria()
         self.bitacora = BitacoraEnMemoria()
         self.movimientos = MovimientosEnMemoria()
+        self.bodegas = BodegasEnMemoria()
         self.insumos = InsumosEnMemoria(self.movimientos)
         self.formulas = FormulasEnMemoria()
         self.alimento_en_uso = AlimentoEnUsoEnMemoria()

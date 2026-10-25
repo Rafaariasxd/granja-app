@@ -91,10 +91,14 @@ Las semanas de corte de etapa y el umbral de la alerta son configurables, porque
 
 ```mermaid
 erDiagram
+    BODEGA ||--o{ MOVIMIENTO_INSUMO : "guarda"
+    BODEGA ||--o{ BODEGA_GALPON : "alimenta"
+    GALPON ||--o| BODEGA_GALPON : "come de"
     INSUMO ||--o{ MOVIMIENTO_INSUMO : "suma de movimientos"
     INSUMO ||--o{ FORMULA_INGREDIENTE : "producto"
     INSUMO ||--o{ FORMULA_INGREDIENTE : "materia prima"
-    INSUMO ||--o| ALIMENTO_EN_USO : "por etapa"
+    BODEGA ||--o{ ALIMENTO_EN_USO : "por etapa"
+    INSUMO ||--o{ ALIMENTO_EN_USO : "en uso"
     REGISTRO_DIARIO ||--o| MOVIMIENTO_INSUMO : "consumo del día"
 
     INSUMO {
@@ -109,8 +113,18 @@ erDiagram
         int insumo_id
         float porcentaje "suman 100 por producto"
     }
+    BODEGA {
+        int id
+        string nombre
+        string tipo "alimento, materia_prima"
+    }
+    BODEGA_GALPON {
+        int galpon_id "un galpón, una bodega"
+        int bodega_id
+    }
     MOVIMIENTO_INSUMO {
         int insumo_id
+        int bodega_id
         date fecha
         float kg "positivo entra, negativo sale"
         string motivo "compra, preparacion, uso_en_mezcla, consumo, ajuste"
@@ -118,9 +132,10 @@ erDiagram
         uuid registro_id "solo en el consumo del día"
     }
     ALIMENTO_EN_USO {
+        int bodega_id
         string etapa
         int insumo_id
     }
 ```
 
-El stock de un insumo es la suma de sus movimientos. `registro_id` es único: reenviar o corregir un registro del día actualiza su movimiento de consumo en vez de crear otro.
+El stock de un insumo en una bodega es la suma de sus movimientos en esa bodega. `registro_id` es único: reenviar o corregir un registro del día actualiza su movimiento de consumo en vez de crear otro.

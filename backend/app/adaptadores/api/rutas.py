@@ -118,6 +118,31 @@ def desactivar_usuario(usuario_id: int, uow: UnidadDep, quien: SoloAdmin):
 
 
 @protegido.post(
+    "/bodegas",
+    response_model=esquemas.BodegaOut,
+    dependencies=[Depends(administrador)],
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_bodega(datos: esquemas.BodegaIn, uow: UnidadDep):
+    bodega = inventario.crear_bodega(uow, datos.nombre, datos.tipo)
+    return esquemas.BodegaOut(id=bodega.id, nombre=bodega.nombre, tipo=bodega.tipo, galpon_ids=[])
+
+
+@protegido.get("/bodegas", response_model=list[esquemas.BodegaOut])
+def listar_bodegas(uow: UnidadDep):
+    return [
+        esquemas.BodegaOut(id=b.id, nombre=b.nombre, tipo=b.tipo, galpon_ids=galpones)
+        for b, galpones in inventario.listar_bodegas(uow)
+    ]
+
+
+@protegido.put("/bodegas/{bodega_id}/galpones", response_model=esquemas.GalponesIn)
+def asignar_galpones(bodega_id: int, datos: esquemas.GalponesIn, uow: UnidadDep, quien: SoloAdmin):
+    ids = inventario.asignar_galpones(uow, quien, bodega_id, datos.galpon_ids, fechas.ahora_utc())
+    return esquemas.GalponesIn(galpon_ids=ids)
+
+
+@protegido.post(
     "/insumos",
     response_model=esquemas.InsumoOut,
     dependencies=[Depends(administrador)],
@@ -142,13 +167,13 @@ def estado_inventario(uow: UnidadDep):
 )
 def registrar_compra(insumo_id: int, datos: esquemas.CompraIn, uow: UnidadDep, quien: UsuarioDep):
     fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
-    return inventario.registrar_compra(uow, quien, insumo_id, fecha, datos.bultos, datos.kg)
+    return inventario.registrar_compra(uow, quien, insumo_id, datos.bodega_id, fecha, datos.bultos, datos.kg)
 
 
 @protegido.post("/insumos/{insumo_id}/ajuste", response_model=esquemas.MovimientoOut | None)
 def ajustar_stock(insumo_id: int, datos: esquemas.AjusteIn, uow: UnidadDep, quien: SoloAdmin):
     fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
-    return inventario.ajustar_stock(uow, quien, insumo_id, fecha, datos.kg_reales, datos.nota)
+    return inventario.ajustar_stock(uow, quien, insumo_id, datos.bodega_id, fecha, datos.kg_reales, datos.nota)
 
 
 @protegido.get("/insumos/{insumo_id}/movimientos", response_model=list[esquemas.MovimientoOut])
@@ -172,9 +197,11 @@ def definir_formula(producto_id: int, datos: list[esquemas.IngredienteIn], uow: 
 )
 def preparar_alimento(producto_id: int, datos: esquemas.PreparacionIn, uow: UnidadDep, quien: UsuarioDep):
     fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
-    return inventario.preparar_alimento(uow, quien, producto_id, fecha, datos.kg)
+    return inventario.preparar_alimento(
+        uow, quien, producto_id, datos.desde_bodega_id, datos.hacia_bodega_id, fecha, datos.kg
+    )
 
 
-@protegido.put("/alimento-en-uso/{etapa}", status_code=status.HTTP_204_NO_CONTENT)
-def definir_alimento_en_uso(etapa: Etapa, datos: esquemas.EnUsoIn, uow: UnidadDep, quien: SoloAdmin):
-    inventario.definir_alimento_en_uso(uow, quien, etapa, datos.insumo_id, fechas.ahora_utc())
+@protegido.put("/bodegas/{bodega_id}/alimento-en-uso/{etapa}", status_code=status.HTTP_204_NO_CONTENT)
+def definir_alimento_en_uso(bodega_id: int, etapa: Etapa, datos: esquemas.EnUsoIn, uow: UnidadDep, quien: SoloAdmin):
+    inventario.definir_alimento_en_uso(uow, quien, bodega_id, etapa, datos.insumo_id, fechas.ahora_utc())

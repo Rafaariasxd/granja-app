@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.adaptadores.db.tablas import (
     TablaAlimentoEnUso,
+    TablaBodega,
+    TablaBodegaGalpon,
     TablaEvento,
     TablaGalpon,
     TablaIngrediente,
@@ -18,6 +20,7 @@ from app.adaptadores.db.tablas import (
     TablaUsuario,
 )
 from app.dominio.modelos import (
+    Bodega,
     Etapa,
     Evento,
     Galpon,
@@ -30,6 +33,7 @@ from app.dominio.modelos import (
     RegistroDiario,
     Rol,
     Sesion,
+    TipoBodega,
     TipoInsumo,
     Usuario,
 )
@@ -300,6 +304,7 @@ def _movimiento(fila: TablaMovimiento) -> MovimientoInsumo:
     return MovimientoInsumo(
         id=fila.id,
         insumo_id=fila.insumo_id,
+        bodega_id=fila.bodega_id,
         fecha=fila.fecha,
         kg=fila.kg,
         motivo=Motivo(fila.motivo),
@@ -336,9 +341,11 @@ class InsumosSql:
     def listar(self) -> list[Insumo]:
         return [_insumo(f) for f in self._session.scalars(select(TablaInsumo).order_by(TablaInsumo.nombre))]
 
-    def stocks(self) -> dict[int, float]:
-        consulta = select(TablaMovimiento.insumo_id, func.sum(TablaMovimiento.kg)).group_by(TablaMovimiento.insumo_id)
-        return {insumo_id: float(kg) for insumo_id, kg in self._session.execute(consulta)}
+    def stocks(self) -> dict[tuple[int, int], float]:
+        consulta = select(TablaMovimiento.bodega_id, TablaMovimiento.insumo_id, func.sum(TablaMovimiento.kg)).group_by(
+            TablaMovimiento.bodega_id, TablaMovimiento.insumo_id
+        )
+        return {(bodega_id, insumo_id): float(kg) for bodega_id, insumo_id, kg in self._session.execute(consulta)}
 
 
 class MovimientosSql:
@@ -348,6 +355,7 @@ class MovimientosSql:
     def agregar(self, movimiento: MovimientoInsumo) -> MovimientoInsumo:
         fila = TablaMovimiento(
             insumo_id=movimiento.insumo_id,
+            bodega_id=movimiento.bodega_id,
             fecha=movimiento.fecha,
             kg=movimiento.kg,
             motivo=movimiento.motivo.value,
@@ -367,6 +375,7 @@ class MovimientosSql:
             self.agregar(movimiento)
             return
         fila.insumo_id = movimiento.insumo_id
+        fila.bodega_id = movimiento.bodega_id
         fila.fecha = movimiento.fecha
         fila.kg = movimiento.kg
         self._session.flush()
@@ -415,20 +424,67 @@ class AlimentoEnUsoSql:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def definir(self, etapa: Etapa, insumo_id: int) -> None:
-        fila = self._session.get(TablaAlimentoEnUso, etapa.value)
+    def definir(self, bodega_id: int, etapa: Etapa, insumo_id: int) -> None:
+        fila = self._session.get(TablaAlimentoEnUso, (bodega_id, etapa.value))
         if fila is None:
-            self._session.add(TablaAlimentoEnUso(etapa=etapa.value, insumo_id=insumo_id))
+            self._session.add(TablaAlimentoEnUso(bodega_id=bodega_id, etapa=etapa.value, insumo_id=insumo_id))
         else:
             fila.insumo_id = insumo_id
         self._session.flush()
 
-    def de(self, etapa: Etapa) -> int | None:
-        fila = self._session.get(TablaAlimentoEnUso, etapa.value)
+    def de(self, bodega_id: int, etapa: Etapa) -> int | None:
+        fila = self._session.get(TablaAlimentoEnUso, (bodega_id, etapa.value))
         return fila.insumo_id if fila else None
 
-    def todos(self) -> dict[Etapa, int]:
-        return {Etapa(f.etapa): f.insumo_id for f in self._session.scalars(select(TablaAlimentoEnUso))}
+    def todos(self) -> dict[tuple[int, Etapa], int]:
+        filas = self._session.scalars(select(TablaAlimentoEnUso))
+        return {(f.bodega_id, Etapa(f.etapa)): f.insumo_id for f in filas}
+
+
+def _bodega(fila: TablaBodega) -> Bodega:
+    return Bodega(id=fila.id, nombre=fila.nombre, tipo=TipoBodega(fila.tipo))
+
+
+class BodegasSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, bodega: Bodega) -> Bodega:
+        fila = TablaBodega(nombre=bodega.nombre, tipo=bodega.tipo.value)
+        self._session.add(fila)
+        self._session.flush()
+        return _bodega(fila)
+
+    def obtener(self, bodega_id: int) -> Bodega | None:
+        fila = self._session.get(TablaBodega, bodega_id)
+        return _bodega(fila) if fila else None
+
+    def por_nombre(self, nombre: str) -> Bodega | None:
+        fila = self._session.scalar(select(TablaBodega).where(TablaBodega.nombre == nombre))
+        return _bodega(fila) if fila else None
+
+    def listar(self) -> list[Bodega]:
+        return [_bodega(f) for f in self._session.scalars(select(TablaBodega).order_by(TablaBodega.id))]
+
+    def asignar_galpones(self, bodega_id: int, galpon_ids: list[int]) -> None:
+        self._session.execute(delete(TablaBodegaGalpon).where(TablaBodegaGalpon.bodega_id == bodega_id))
+        if galpon_ids:
+            self._session.execute(delete(TablaBodegaGalpon).where(TablaBodegaGalpon.galpon_id.in_(galpon_ids)))
+        for galpon_id in galpon_ids:
+            self._session.add(TablaBodegaGalpon(galpon_id=galpon_id, bodega_id=bodega_id))
+        self._session.flush()
+
+    def galpones_de(self, bodega_id: int) -> list[int]:
+        consulta = (
+            select(TablaBodegaGalpon.galpon_id)
+            .where(TablaBodegaGalpon.bodega_id == bodega_id)
+            .order_by(TablaBodegaGalpon.galpon_id)
+        )
+        return list(self._session.scalars(consulta))
+
+    def de_galpon(self, galpon_id: int) -> int | None:
+        fila = self._session.get(TablaBodegaGalpon, galpon_id)
+        return fila.bodega_id if fila else None
 
 
 class UnidadDeTrabajoSql:
@@ -441,6 +497,7 @@ class UnidadDeTrabajoSql:
         self.usuarios = UsuariosSql(session)
         self.sesiones = SesionesSql(session)
         self.bitacora = BitacoraSql(session)
+        self.bodegas = BodegasSql(session)
         self.insumos = InsumosSql(session)
         self.movimientos = MovimientosSql(session)
         self.formulas = FormulasSql(session)

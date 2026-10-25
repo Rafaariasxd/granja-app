@@ -99,6 +99,21 @@ class TablaEvento(Base):
     momento: Mapped[datetime]
 
 
+class TablaBodega(Base):
+    __tablename__ = "bodegas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    tipo: Mapped[str] = mapped_column(String(20))
+
+
+class TablaBodegaGalpon(Base):
+    __tablename__ = "bodegas_galpones"
+
+    galpon_id: Mapped[int] = mapped_column(ForeignKey("galpones.id"), primary_key=True)
+    bodega_id: Mapped[int] = mapped_column(ForeignKey("bodegas.id"))
+
+
 class TablaInsumo(Base):
     __tablename__ = "insumos"
     __table_args__ = (CheckConstraint("kg_por_bulto IS NULL OR kg_por_bulto > 0", name="kg_por_bulto"),)
@@ -129,6 +144,7 @@ class TablaMovimiento(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))
+    bodega_id: Mapped[int] = mapped_column(ForeignKey("bodegas.id"))
     fecha: Mapped[date]
     kg: Mapped[float]
     motivo: Mapped[str] = mapped_column(String(20))
@@ -140,5 +156,6 @@ class TablaMovimiento(Base):
 class TablaAlimentoEnUso(Base):
     __tablename__ = "alimento_en_uso"
 
+    bodega_id: Mapped[int] = mapped_column(ForeignKey("bodegas.id"), primary_key=True)
     etapa: Mapped[str] = mapped_column(String(20), primary_key=True)
     insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))

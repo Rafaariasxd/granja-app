@@ -28,17 +28,20 @@ def test_no_carga_sobre_una_base_con_datos():
         datos_ejemplo.cargar(uow, HOY)
 
 
-def test_con_un_administrador_carga_tambien_el_inventario():
+def test_con_un_administrador_carga_tambien_el_inventario_en_tres_bodegas():
     uow = UnidadEnMemoria()
     usuarios.crear_usuario(uow, "Rafa", "483920", Rol.ADMINISTRADOR)
     datos_ejemplo.cargar(uow, HOY)
 
     estado = inventario.estado_inventario(uow, HOY)
 
-    nombres = {e.insumo.nombre for e in estado.existencias}
-    assert {"Maíz", "Soya", "Mezcla ponedora", "Italcol levante"} <= nombres
-    ponedora = next(c for c in estado.etapas if c.etapa == Etapa.PRODUCCION)
-    assert ponedora.consumo_diario_kg > 0
+    assert [b.bodega.nombre for b in estado.bodegas] == ["Bodega 1", "Bodega 2", "Bodega de materia prima"]
+    ponedoras = estado.bodegas[0]
+    assert {e.insumo.nombre for e in ponedoras.existencias} == {"Mezcla ponedora"}
+    assert ponedoras.etapas[0].etapa == Etapa.PRODUCCION
+    assert ponedoras.etapas[0].consumo_diario_kg > 0
+    assert estado.bodegas[1].etapas[0].etapa == Etapa.LEVANTE
+    assert len(estado.bodegas[2].existencias) == 5
     assert estado.mezclas[0].limitante
 
 
