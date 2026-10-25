@@ -27,7 +27,9 @@ pytest                            # pruebas
 ruff check . && ruff format .     # lint y formato
 ```
 
-Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, por ejemplo `postgresql+psycopg://usuario:clave@localhost/granja`. Alembic usa la misma variable.
+Por defecto usa SQLite (`granja.db`). Para PostgreSQL, define `DATABASE_URL`, por ejemplo `postgresql+psycopg://usuario:clave@localhost/granja` (también acepta `postgresql://` y `postgres://`). Alembic usa la misma variable. Para correr las pruebas contra PostgreSQL, define `PRUEBAS_DATABASE_URL` con una base vacía de pruebas: borra y recrea las tablas en cada prueba.
+
+Para tener la API en un servidor con PostgreSQL y HTTPS: [docs/despliegue.md](docs/despliegue.md).
 
 ### Usuarios y seguridad
 
