@@ -90,6 +90,31 @@ class ApiGranja {
     await _enviar(() => _cliente.delete(base.resolve('registros/$id'), headers: _autorizacion()));
   }
 
+  Future<String> inventarioJson() async {
+    final respuesta = await _enviar(() => _cliente.get(base.resolve('inventario'), headers: _autorizacion()));
+    return utf8.decode(respuesta.bodyBytes);
+  }
+
+  Future<void> registrarCompra(int insumoId, {required double bultos}) async {
+    await _enviar(
+      () => _cliente.post(
+        base.resolve('insumos/$insumoId/compras'),
+        headers: {'Content-Type': 'application/json', ..._autorizacion()},
+        body: jsonEncode({'bultos': bultos}),
+      ),
+    );
+  }
+
+  Future<void> prepararAlimento(int productoId, {required double kg}) async {
+    await _enviar(
+      () => _cliente.post(
+        base.resolve('alimentos/$productoId/preparaciones'),
+        headers: {'Content-Type': 'application/json', ..._autorizacion()},
+        body: jsonEncode({'kg': kg}),
+      ),
+    );
+  }
+
   Map<String, String> _autorizacion() => {if (token != null) 'Authorization': 'Bearer $token'};
 
   Future<List<ResumenGalpon>> resumen(DateTime fecha) async {

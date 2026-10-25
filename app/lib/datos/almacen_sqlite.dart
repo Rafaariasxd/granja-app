@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../dominio/modelos.dart';
 import 'cola.dart';
+import 'bodega.dart';
 import 'json.dart';
 import 'resumen.dart';
 
@@ -60,6 +61,31 @@ class AlmacenResumenSqlite implements AlmacenResumen {
       fecha: fechaDesdeIso(fila['fecha']! as String),
       actualizadoEn: DateTime.parse(fila['actualizado_en']! as String),
       galpones: [for (final g in galpones) resumenDesdeJson(g as Map<String, dynamic>)],
+    );
+  }
+}
+
+class AlmacenBodegaSqlite implements AlmacenBodega {
+  AlmacenBodegaSqlite(this._db);
+
+  final Database _db;
+
+  @override
+  Future<void> guardar(BodegaGuardada bodega) async {
+    await _db.insert('bodega', {
+      'id': 1,
+      'actualizado_en': bodega.actualizadoEn.toUtc().toIso8601String(),
+      'datos': bodega.datos,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<BodegaGuardada?> ultima() async {
+    final filas = await _db.query('bodega', where: 'id = ?', whereArgs: [1]);
+    if (filas.isEmpty) return null;
+    return BodegaGuardada(
+      actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
+      datos: filas.single['datos']! as String,
     );
   }
 }

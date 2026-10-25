@@ -28,7 +28,7 @@ const galpon = ResumenGalpon(
 final ahora = DateTime.utc(2026, 10, 21, 17);
 
 class Montaje {
-  Montaje({int estado = 200}) {
+  Montaje({int estado = 200, this.borrar}) {
     final cliente = MockClient((peticion) async {
       enviados.add(jsonDecode(peticion.body) as Map<String, dynamic>);
       return http.Response.bytes(utf8.encode('{}'), estado);
@@ -43,6 +43,7 @@ class Montaje {
   late final EstadoEnvios envios;
   late final FormularioRegistro formulario;
   bool? resultado;
+  final Future<String?> Function()? borrar;
 
   Widget get app => MaterialApp(
     theme: temaGranja(),
@@ -51,7 +52,13 @@ class Montaje {
         body: TextButton(
           onPressed: () async => resultado = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => RegistroPantalla(formulario: formulario, envios: envios, reloj: () => ahora),
+              builder: (_) => RegistroPantalla(
+                formulario: formulario,
+                envios: envios,
+                reloj: () => ahora,
+                corrigiendo: borrar != null,
+                alBorrar: borrar,
+              ),
             ),
           ),
           child: const Text('abrir'),
@@ -149,5 +156,68 @@ void main() {
 
     expect(montaje.resultado, isFalse);
     expect(montaje.enviados, isEmpty);
+  });
+
+  testWidgets('quien no puede borrar no ve el botón', (tester) async {
+    final montaje = Montaje();
+    await abrir(tester, montaje);
+
+    expect(find.text('Borrar este registro'), findsNothing);
+  });
+
+  testWidgets('al corregir se avisa y el administrador puede borrar tras confirmar', (tester) async {
+    var borrados = 0;
+    final montaje = Montaje(
+      borrar: () async {
+        borrados++;
+        return null;
+      },
+    );
+    await abrir(tester, montaje);
+
+    expect(find.textContaining('Corrigiendo el registro de hoy'), findsOneWidget);
+    await tester.ensureVisible(find.text('Borrar este registro'));
+    await tester.tap(find.text('Borrar este registro'));
+    await tester.pumpAndSettle();
+    expect(find.text('¿Borrar este registro?'), findsOneWidget);
+    await tester.tap(find.text('Sí, borrar'));
+    await tester.pumpAndSettle();
+
+    expect(borrados, 1);
+    expect(montaje.resultado, isTrue);
+  });
+
+  testWidgets('si dice que no, no se borra nada', (tester) async {
+    var borrados = 0;
+    final montaje = Montaje(
+      borrar: () async {
+        borrados++;
+        return null;
+      },
+    );
+    await abrir(tester, montaje);
+
+    await tester.ensureVisible(find.text('Borrar este registro'));
+    await tester.tap(find.text('Borrar este registro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No, dejarlo'));
+    await tester.pumpAndSettle();
+
+    expect(borrados, 0);
+    expect(find.text('Guardar'), findsOneWidget);
+  });
+
+  testWidgets('si no se pudo borrar muestra el motivo y no cierra', (tester) async {
+    final montaje = Montaje(borrar: () async => 'Sin señal: borrar necesita internet.');
+    await abrir(tester, montaje);
+
+    await tester.ensureVisible(find.text('Borrar este registro'));
+    await tester.tap(find.text('Borrar este registro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sí, borrar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sin señal: borrar necesita internet.'), findsOneWidget);
+    expect(montaje.resultado, isNull);
   });
 }

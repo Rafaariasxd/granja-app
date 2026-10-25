@@ -24,16 +24,26 @@ CREATE TABLE resumen (
   galpones TEXT NOT NULL
 )
 ''',
+  '''
+CREATE TABLE bodega (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  actualizado_en TEXT NOT NULL,
+  datos TEXT NOT NULL
+)
+''',
 ];
 
 Future<Database> abrirBaseLocal(DatabaseFactory fabrica, String ruta) => fabrica.openDatabase(
   ruta,
   options: OpenDatabaseOptions(
-    version: 1,
+    version: 2,
     onCreate: (db, _) async {
       for (final sql in _tablas) {
         await db.execute(sql);
       }
+    },
+    onUpgrade: (db, anterior, _) async {
+      if (anterior < 2) await db.execute(_tablas[2]);
     },
   ),
 );
