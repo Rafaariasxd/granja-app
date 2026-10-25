@@ -1,6 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as ruta;
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'datos/almacen_sesion_segura.dart';
 import 'datos/almacen_sqlite.dart';
@@ -24,6 +26,10 @@ const _urlApi = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   final base = await abrirBaseLocal(databaseFactory, ruta.join(await getDatabasesPath(), 'granja.db'));
   final api = ApiGranja(Uri.parse(_urlApi));
   final almacen = AlmacenSqlite(base);
