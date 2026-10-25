@@ -212,3 +212,42 @@ def test_sin_sesion_no_se_ve_el_inventario(client):
     assert anonimo.get("/inventario").status_code == 401
     assert anonimo.get("/bodegas").status_code == 401
     assert anonimo.post("/insumos/1/compras", json={"bodega_id": 1, "kg": 1}).status_code == 401
+
+
+def test_reenviar_una_compra_con_la_misma_operacion_no_la_duplica(client, bodega):
+    cuerpo = {"bodega_id": bodega["materia"]["id"], "bultos": 2, "operacion_id": str(uuid.uuid4())}
+    ruta = f"/insumos/{bodega['maiz']['id']}/compras"
+
+    primera = client.post(ruta, json=cuerpo)
+    repetida = client.post(ruta, json=cuerpo)
+
+    assert (primera.status_code, repetida.status_code) == (201, 201)
+    assert repetida.json()["id"] == primera.json()["id"]
+    assert _existencia(client, bodega["materia"], bodega["maiz"])["stock_kg"] == 100
+
+
+def test_reenviar_una_preparacion_con_la_misma_operacion_no_la_duplica(client, bodega):
+    _compra(client, bodega["maiz"], bodega["materia"], bultos=10)
+    _compra(client, bodega["soya"], bodega["materia"], bultos=10)
+    cuerpo = {
+        "desde_bodega_id": bodega["materia"]["id"],
+        "hacia_bodega_id": bodega["dos"]["id"],
+        "kg": 200,
+        "operacion_id": str(uuid.uuid4()),
+    }
+    ruta = f"/alimentos/{bodega['mezcla']['id']}/preparaciones"
+
+    primera = client.post(ruta, json=cuerpo)
+    repetida = client.post(ruta, json=cuerpo)
+
+    assert repetida.json()["id"] == primera.json()["id"]
+    assert _existencia(client, bodega["dos"], bodega["mezcla"])["stock_kg"] == 200
+    assert _existencia(client, bodega["materia"], bodega["maiz"])["stock_kg"] == 360
+
+
+def test_una_operacion_que_no_es_uuid_es_422(client, bodega):
+    r = client.post(
+        f"/insumos/{bodega['maiz']['id']}/compras",
+        json={"bodega_id": bodega["materia"]["id"], "bultos": 1, "operacion_id": "abc"},
+    )
+    assert r.status_code == 422

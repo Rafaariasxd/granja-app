@@ -167,7 +167,9 @@ def estado_inventario(uow: UnidadDep):
 )
 def registrar_compra(insumo_id: int, datos: esquemas.CompraIn, uow: UnidadDep, quien: UsuarioDep):
     fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
-    return inventario.registrar_compra(uow, quien, insumo_id, datos.bodega_id, fecha, datos.bultos, datos.kg)
+    return inventario.registrar_compra(
+        uow, quien, insumo_id, datos.bodega_id, fecha, datos.bultos, datos.kg, datos.operacion_id
+    )
 
 
 @protegido.post("/insumos/{insumo_id}/ajuste", response_model=esquemas.MovimientoOut | None)
@@ -198,7 +200,7 @@ def definir_formula(producto_id: int, datos: list[esquemas.IngredienteIn], uow: 
 def preparar_alimento(producto_id: int, datos: esquemas.PreparacionIn, uow: UnidadDep, quien: UsuarioDep):
     fecha = datos.fecha or fechas.fecha_en_granja(datetime.now(UTC))
     return inventario.preparar_alimento(
-        uow, quien, producto_id, datos.desde_bodega_id, datos.hacia_bodega_id, fecha, datos.kg
+        uow, quien, producto_id, datos.desde_bodega_id, datos.hacia_bodega_id, fecha, datos.kg, datos.operacion_id
     )
 
 

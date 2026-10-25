@@ -147,6 +147,7 @@ class MovimientoInsumo:
     usuario_id: int | None = None
     nota: str = ""
     registro_id: uuid.UUID | None = None
+    operacion_id: uuid.UUID | None = None
     id: int | None = None
 
 

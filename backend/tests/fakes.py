@@ -169,6 +169,9 @@ class MovimientosEnMemoria(_Tabla):
         for id_ in [m.id for m in self.filas.values() if m.registro_id == registro_id]:
             del self.filas[id_]
 
+    def de_operacion(self, operacion_id) -> list[MovimientoInsumo]:
+        return [replace(m) for m in self.filas.values() if m.operacion_id == operacion_id]
+
     def del_insumo(self, insumo_id: int, limite: int) -> list[MovimientoInsumo]:
         propios = [replace(m) for m in self.filas.values() if m.insumo_id == insumo_id]
         return sorted(propios, key=lambda m: (m.fecha, m.id), reverse=True)[:limite]
