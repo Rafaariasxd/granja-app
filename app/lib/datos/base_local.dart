@@ -31,12 +31,20 @@ CREATE TABLE bodega (
   datos TEXT NOT NULL
 )
 ''',
+  '''
+CREATE TABLE operaciones (
+  id TEXT PRIMARY KEY,
+  guardado_en TEXT NOT NULL,
+  estado TEXT NOT NULL,
+  datos TEXT NOT NULL
+)
+''',
 ];
 
 Future<Database> abrirBaseLocal(DatabaseFactory fabrica, String ruta) => fabrica.openDatabase(
   ruta,
   options: OpenDatabaseOptions(
-    version: 2,
+    version: 3,
     onCreate: (db, _) async {
       for (final sql in _tablas) {
         await db.execute(sql);
@@ -44,6 +52,7 @@ Future<Database> abrirBaseLocal(DatabaseFactory fabrica, String ruta) => fabrica
     },
     onUpgrade: (db, anterior, _) async {
       if (anterior < 2) await db.execute(_tablas[2]);
+      if (anterior < 3) await db.execute(_tablas[3]);
     },
   ),
 );

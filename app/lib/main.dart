@@ -45,7 +45,7 @@ Future<void> main() async {
   final sesion = EstadoSesion(ServicioSesion(api, AlmacenSesionSegura()))..iniciar();
   final envios = EstadoEnvios(Sincronizador(almacen, api), almacen);
   final inicio = EstadoInicio(RepositorioResumen(api, AlmacenResumenSqlite(base)));
-  final bodega = EstadoBodega(RepositorioBodega(api, AlmacenBodegaSqlite(base)));
+  final bodega = EstadoBodega(RepositorioBodega(api, AlmacenBodegaSqlite(base), AlmacenOperacionesSqlite(base)));
   final administracion = EstadoAdministracion(RepositorioAdministracion(api));
   sesion
     ..vigilar(envios, () => envios.sesionVencida)

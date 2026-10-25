@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../dominio/modelos.dart';
-import 'cola.dart';
 import 'bodega.dart';
+import 'cola.dart';
 import 'json.dart';
+import 'operaciones.dart';
 import 'resumen.dart';
 
 class AlmacenSqlite implements AlmacenCambios {
@@ -87,6 +88,40 @@ class AlmacenBodegaSqlite implements AlmacenBodega {
       actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
       datos: filas.single['datos']! as String,
     );
+  }
+}
+
+class AlmacenOperacionesSqlite implements AlmacenOperaciones {
+  AlmacenOperacionesSqlite(this._db);
+
+  final Database _db;
+
+  @override
+  Future<void> guardar(OperacionBodega operacion) async {
+    await _db.insert('operaciones', {
+      'id': operacion.id,
+      'guardado_en': operacion.guardadoEn.toUtc().toIso8601String(),
+      'estado': operacion.estado.name,
+      'datos': jsonEncode(operacion.aMapa()),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<List<OperacionBodega>> porEnviar() => _consultar('estado = ?', [EstadoEnvio.pendiente.name]);
+
+  @override
+  Future<List<OperacionBodega>> sinResolver() => _consultar('estado != ?', [EstadoEnvio.enviado.name]);
+
+  @override
+  Future<void> quitar(String id) async {
+    await _db.delete('operaciones', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<OperacionBodega>> _consultar(String donde, List<Object> argumentos) async {
+    final filas = await _db.query('operaciones', where: donde, whereArgs: argumentos, orderBy: 'guardado_en');
+    return [
+      for (final fila in filas) OperacionBodega.desdeMapa(jsonDecode(fila['datos']! as String) as Map<String, dynamic>),
+    ];
   }
 }
 

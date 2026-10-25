@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../datos/cola.dart';
+import '../datos/operaciones.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
 import 'estado_bodega.dart';
@@ -56,9 +58,22 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
       builder: (_) => _HojaCompra(estado: widget.estado, bodega: bodega, existencia: existencia),
     );
     if (guardado == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Compra guardada')));
+      _avisarGuardado('Compra guardada');
     }
   }
+
+  void _avisarGuardado(String texto) {
+    final sinEnviar = widget.estado.porEnviar > 0;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(sinEnviar ? '$texto. Se envía cuando haya señal' : texto)));
+  }
+
+  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colores.cal,
+    builder: (_) => _HojaSinEnviar(estado: widget.estado),
+  );
 
   Future<void> _preparar(MezclaPosible mezcla, List<Bodega> destinos) async {
     final guardado = await showModalBottomSheet<bool>(
@@ -68,7 +83,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
       builder: (_) => _HojaPreparar(estado: widget.estado, mezcla: mezcla, destinos: destinos),
     );
     if (guardado == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preparación guardada')));
+      _avisarGuardado('Preparación guardada');
     }
   }
 
@@ -113,6 +128,14 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
                     style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave),
                   ),
                   const SizedBox(height: 16),
+                  if (estado.sinResolver.isNotEmpty) ...[
+                    _SinEnviar(
+                      porEnviar: estado.porEnviar,
+                      noRegistradas: estado.noRegistradas,
+                      alPulsar: _verSinEnviar,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   if (inventario == null)
                     _SinDatos(cargando: estado.cargando)
                   else if (actual == null)
@@ -253,6 +276,145 @@ class _Urgentes extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SinEnviar extends StatelessWidget {
+  const _SinEnviar({required this.porEnviar, required this.noRegistradas, required this.alPulsar});
+
+  final int porEnviar;
+  final int noRegistradas;
+  final VoidCallback alPulsar;
+
+  @override
+  Widget build(BuildContext context) {
+    final problema = noRegistradas > 0;
+    final color = problema ? Colores.urgenteTexto : Colores.revisarTexto;
+    final titulo = problema
+        ? (noRegistradas == 1 ? '1 no se pudo registrar' : '$noRegistradas no se pudieron registrar')
+        : (porEnviar == 1 ? '1 cosa sin enviar' : '$porEnviar cosas sin enviar');
+    return Material(
+      color: problema ? Colores.urgenteFondo : Colores.revisarFondo,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: alPulsar,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(problema ? Icons.error_outline : Icons.cloud_upload_outlined, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color),
+                    ),
+                    Text(
+                      problema ? 'Toca para verlas' : 'Se envían solas cuando haya señal',
+                      style: TextStyle(fontSize: 16, color: color),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HojaSinEnviar extends StatelessWidget {
+  const _HojaSinEnviar({required this.estado});
+
+  final EstadoBodega estado;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return ListenableBuilder(
+      listenable: estado,
+      builder: (context, _) {
+        final operaciones = estado.sinResolver;
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Sin enviar', style: textos.headlineMedium),
+                  const SizedBox(height: 12),
+                  if (operaciones.isEmpty) Text('No queda nada pendiente.', style: textos.bodyLarge),
+                  for (final o in operaciones) ...[
+                    _OperacionFila(operacion: o, alDescartar: () => estado.descartar(o.id)),
+                    const SizedBox(height: 10),
+                  ],
+                  const SizedBox(height: 6),
+                  OutlinedButton(onPressed: estado.cargar, child: const Text('Intentar enviar ahora')),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OperacionFila extends StatelessWidget {
+  const _OperacionFila({required this.operacion, required this.alDescartar});
+
+  final OperacionBodega operacion;
+  final VoidCallback alDescartar;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final pendiente = operacion.estado == EstadoEnvio.pendiente;
+    final accion = operacion.tipo == TipoOperacion.compra ? 'Compra' : 'Preparación';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colores.borde),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('$accion: ${operacion.descripcion}', style: textos.titleLarge)),
+              Etiqueta(
+                texto: pendiente ? 'Sin enviar' : 'No registrada',
+                icono: pendiente ? Icons.schedule : Icons.priority_high,
+                fondo: pendiente ? Colores.revisarFondo : Colores.urgenteFondo,
+                color: pendiente ? Colores.revisarTexto : Colores.urgenteTexto,
+              ),
+            ],
+          ),
+          if (!pendiente && operacion.mensaje != null) ...[
+            const SizedBox(height: 6),
+            Text(operacion.mensaje!, style: const TextStyle(fontSize: 16, color: Colores.urgenteTexto)),
+          ],
+          if (!pendiente) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: alDescartar,
+              style: TextButton.styleFrom(foregroundColor: Colores.urgenteTexto, minimumSize: const Size(0, 48)),
+              child: const Text('Descartar', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -497,7 +659,7 @@ class _HojaCompraState extends State<_HojaCompra> {
       _guardando = true;
       _error = null;
     });
-    final error = await widget.estado.registrarCompra(widget.existencia.insumo.id, widget.bodega.id, _bultos);
+    final error = await widget.estado.registrarCompra(widget.existencia.insumo, widget.bodega.id, _bultos);
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context).pop(true);
@@ -612,12 +774,7 @@ class _HojaPrepararState extends State<_HojaPreparar> {
       _guardando = true;
       _error = null;
     });
-    final error = await widget.estado.prepararAlimento(
-      widget.mezcla.productoId,
-      widget.mezcla.origenId,
-      _destino,
-      double.parse(_kg.text),
-    );
+    final error = await widget.estado.prepararAlimento(widget.mezcla, _destino, double.parse(_kg.text));
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context).pop(true);
