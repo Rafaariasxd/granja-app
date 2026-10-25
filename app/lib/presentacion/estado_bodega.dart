@@ -34,11 +34,11 @@ class EstadoBodega extends ChangeNotifier {
     }
   }
 
-  Future<String?> registrarCompra(int insumoId, double bultos) =>
-      _accion(() => _repositorio.registrarCompra(insumoId, bultos));
+  Future<String?> registrarCompra(int insumoId, int bodegaId, double bultos) =>
+      _accion(() => _repositorio.registrarCompra(insumoId, bodegaId, bultos));
 
-  Future<String?> prepararAlimento(int productoId, double kg) =>
-      _accion(() => _repositorio.prepararAlimento(productoId, kg));
+  Future<String?> prepararAlimento(int productoId, int desdeBodegaId, int haciaBodegaId, double kg) =>
+      _accion(() => _repositorio.prepararAlimento(productoId, desdeBodegaId, haciaBodegaId, kg));
 
   Future<String?> _accion(Future<void> Function() accion) async {
     try {
