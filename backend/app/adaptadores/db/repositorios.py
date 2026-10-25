@@ -8,6 +8,8 @@ from app.adaptadores.db.tablas import (
     TablaAlimentoEnUso,
     TablaBodega,
     TablaBodegaGalpon,
+    TablaCumplimiento,
+    TablaCurva,
     TablaEvento,
     TablaGalpon,
     TablaIngrediente,
@@ -15,6 +17,8 @@ from app.adaptadores.db.tablas import (
     TablaLinea,
     TablaLote,
     TablaMovimiento,
+    TablaPesaje,
+    TablaPlan,
     TablaRegistro,
     TablaSesion,
     TablaUsuario,
@@ -37,6 +41,7 @@ from app.dominio.modelos import (
     TipoInsumo,
     Usuario,
 )
+from app.dominio.sanidad import Cumplimiento, Pesaje, PuntoCurva, TareaPlan, TipoTarea
 
 
 def _galpon(fila: TablaGalpon) -> Galpon:
@@ -44,7 +49,7 @@ def _galpon(fila: TablaGalpon) -> Galpon:
 
 
 def _linea(fila: TablaLinea) -> LineaGenetica:
-    return LineaGenetica(id=fila.id, nombre=fila.nombre)
+    return LineaGenetica(id=fila.id, nombre=fila.nombre, revisada=fila.revisada)
 
 
 def _lote(fila: TablaLote) -> Lote:
@@ -98,7 +103,7 @@ class LineasSql:
         self._session = session
 
     def agregar(self, linea: LineaGenetica) -> LineaGenetica:
-        fila = TablaLinea(nombre=linea.nombre)
+        fila = TablaLinea(nombre=linea.nombre, revisada=linea.revisada)
         self._session.add(fila)
         self._session.flush()
         return _linea(fila)
@@ -113,6 +118,13 @@ class LineasSql:
 
     def listar(self) -> list[LineaGenetica]:
         return [_linea(f) for f in self._session.scalars(select(TablaLinea).order_by(TablaLinea.nombre))]
+
+    def actualizar(self, linea: LineaGenetica) -> LineaGenetica:
+        fila = self._session.get_one(TablaLinea, linea.id)
+        fila.nombre = linea.nombre
+        fila.revisada = linea.revisada
+        self._session.flush()
+        return _linea(fila)
 
 
 class LotesSql:
@@ -495,6 +507,145 @@ class BodegasSql:
         return fila.bodega_id if fila else None
 
 
+class CurvasSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, linea_id: int, puntos: list[PuntoCurva]) -> None:
+        self._session.execute(delete(TablaCurva).where(TablaCurva.linea_id == linea_id))
+        for p in puntos:
+            self._session.add(
+                TablaCurva(linea_id=linea_id, semana_edad=p.semana, postura_pct=p.postura_pct, peso_g=p.peso_g)
+            )
+        self._session.flush()
+
+    def de(self, linea_id: int) -> list[PuntoCurva]:
+        consulta = select(TablaCurva).where(TablaCurva.linea_id == linea_id).order_by(TablaCurva.semana_edad)
+        return [PuntoCurva(f.semana_edad, f.postura_pct, f.peso_g) for f in self._session.scalars(consulta)]
+
+
+def _tarea(fila: TablaPlan) -> TareaPlan:
+    return TareaPlan(
+        id=fila.id,
+        linea_id=fila.linea_id,
+        nombre=fila.nombre,
+        tipo=TipoTarea(fila.tipo),
+        semana_ideal=fila.semana_ideal,
+        semana_max=fila.semana_max,
+        nota=fila.nota,
+        activa=fila.activa,
+    )
+
+
+class PlanSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, linea_id: int, tareas: list[TareaPlan]) -> list[TareaPlan]:
+        existentes = {f.id: f for f in self._session.scalars(select(TablaPlan).where(TablaPlan.linea_id == linea_id))}
+        conservadas = {t.id for t in tareas if t.id is not None}
+        for id_, fila in existentes.items():
+            if id_ not in conservadas:
+                fila.activa = False
+        guardadas = []
+        for t in tareas:
+            fila = existentes.get(t.id) if t.id is not None else None
+            if fila is None:
+                fila = TablaPlan(linea_id=linea_id)
+                self._session.add(fila)
+            fila.nombre = t.nombre
+            fila.tipo = t.tipo.value
+            fila.semana_ideal = t.semana_ideal
+            fila.semana_max = t.semana_max
+            fila.nota = t.nota
+            fila.activa = True
+            guardadas.append(fila)
+        self._session.flush()
+        return [_tarea(f) for f in guardadas]
+
+    def de(self, linea_id: int) -> list[TareaPlan]:
+        consulta = select(TablaPlan).where(TablaPlan.linea_id == linea_id).order_by(TablaPlan.id)
+        return [_tarea(f) for f in self._session.scalars(consulta)]
+
+    def obtener(self, tarea_id: int) -> TareaPlan | None:
+        fila = self._session.get(TablaPlan, tarea_id)
+        return _tarea(fila) if fila else None
+
+
+def _cumplimiento(fila: TablaCumplimiento) -> Cumplimiento:
+    return Cumplimiento(
+        id=fila.id,
+        lote_id=fila.lote_id,
+        tarea_id=fila.tarea_id,
+        fecha=fila.fecha,
+        nota=fila.nota,
+        usuario_id=fila.usuario_id,
+    )
+
+
+class CumplimientosSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, cumplimiento: Cumplimiento) -> Cumplimiento:
+        fila = self._session.get(TablaCumplimiento, cumplimiento.id)
+        if fila is None:
+            fila = TablaCumplimiento(id=cumplimiento.id)
+            self._session.add(fila)
+        fila.lote_id = cumplimiento.lote_id
+        fila.tarea_id = cumplimiento.tarea_id
+        fila.fecha = cumplimiento.fecha
+        fila.nota = cumplimiento.nota
+        fila.usuario_id = cumplimiento.usuario_id
+        self._session.flush()
+        return _cumplimiento(fila)
+
+    def obtener(self, cumplimiento_id: uuid.UUID) -> Cumplimiento | None:
+        fila = self._session.get(TablaCumplimiento, cumplimiento_id)
+        return _cumplimiento(fila) if fila else None
+
+    def del_lote(self, lote_id: int) -> list[Cumplimiento]:
+        consulta = select(TablaCumplimiento).where(TablaCumplimiento.lote_id == lote_id)
+        return [_cumplimiento(f) for f in self._session.scalars(consulta)]
+
+    def quitar(self, cumplimiento_id: uuid.UUID) -> None:
+        self._session.execute(delete(TablaCumplimiento).where(TablaCumplimiento.id == cumplimiento_id))
+
+
+def _pesaje(fila: TablaPesaje) -> Pesaje:
+    return Pesaje(
+        id=fila.id, lote_id=fila.lote_id, fecha=fila.fecha, peso_g=fila.peso_g, aves_pesadas=fila.aves_pesadas
+    )
+
+
+class PesajesSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, pesaje: Pesaje) -> Pesaje:
+        fila = self._session.get(TablaPesaje, pesaje.id)
+        if fila is None:
+            fila = TablaPesaje(id=pesaje.id)
+            self._session.add(fila)
+        fila.lote_id = pesaje.lote_id
+        fila.fecha = pesaje.fecha
+        fila.peso_g = pesaje.peso_g
+        fila.aves_pesadas = pesaje.aves_pesadas
+        self._session.flush()
+        return _pesaje(fila)
+
+    def obtener(self, pesaje_id: uuid.UUID) -> Pesaje | None:
+        fila = self._session.get(TablaPesaje, pesaje_id)
+        return _pesaje(fila) if fila else None
+
+    def del_lote(self, lote_id: int) -> list[Pesaje]:
+        consulta = select(TablaPesaje).where(TablaPesaje.lote_id == lote_id).order_by(TablaPesaje.fecha)
+        return [_pesaje(f) for f in self._session.scalars(consulta)]
+
+    def quitar(self, pesaje_id: uuid.UUID) -> None:
+        self._session.execute(delete(TablaPesaje).where(TablaPesaje.id == pesaje_id))
+
+
 class UnidadDeTrabajoSql:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -510,6 +661,10 @@ class UnidadDeTrabajoSql:
         self.movimientos = MovimientosSql(session)
         self.formulas = FormulasSql(session)
         self.alimento_en_uso = AlimentoEnUsoSql(session)
+        self.curvas = CurvasSql(session)
+        self.plan = PlanSql(session)
+        self.cumplimientos = CumplimientosSql(session)
+        self.pesajes = PesajesSql(session)
 
     def confirmar(self) -> None:
         self._session.commit()

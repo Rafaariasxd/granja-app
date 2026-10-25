@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.adaptadores.db.conexion import Base
@@ -22,6 +22,7 @@ class TablaLinea(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(50), unique=True)
+    revisada: Mapped[bool] = mapped_column(default=False, server_default=false())
 
 
 class TablaCurva(Base):
@@ -160,3 +161,46 @@ class TablaAlimentoEnUso(Base):
     bodega_id: Mapped[int] = mapped_column(ForeignKey("bodegas.id"), primary_key=True)
     etapa: Mapped[str] = mapped_column(String(20), primary_key=True)
     insumo_id: Mapped[int] = mapped_column(ForeignKey("insumos.id"))
+
+
+class TablaPlan(Base):
+    __tablename__ = "plan_sanitario"
+    __table_args__ = (
+        CheckConstraint("semana_ideal >= 0", name="semana_ideal"),
+        CheckConstraint("semana_max >= semana_ideal", name="semana_max"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    linea_id: Mapped[int] = mapped_column(ForeignKey("lineas_geneticas.id"))
+    nombre: Mapped[str] = mapped_column(String(80))
+    tipo: Mapped[str] = mapped_column(String(20))
+    semana_ideal: Mapped[int]
+    semana_max: Mapped[int]
+    nota: Mapped[str] = mapped_column(Text, default="")
+    activa: Mapped[bool] = mapped_column(default=True)
+
+
+class TablaCumplimiento(Base):
+    __tablename__ = "cumplimientos"
+    __table_args__ = (UniqueConstraint("lote_id", "tarea_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    lote_id: Mapped[int] = mapped_column(ForeignKey("lotes.id"))
+    tarea_id: Mapped[int] = mapped_column(ForeignKey("plan_sanitario.id"))
+    fecha: Mapped[date]
+    nota: Mapped[str] = mapped_column(Text, default="")
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+
+
+class TablaPesaje(Base):
+    __tablename__ = "pesajes"
+    __table_args__ = (
+        CheckConstraint("peso_g > 0", name="peso_g"),
+        CheckConstraint("aves_pesadas > 0", name="aves_pesadas"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    lote_id: Mapped[int] = mapped_column(ForeignKey("lotes.id"))
+    fecha: Mapped[date]
+    peso_g: Mapped[float]
+    aves_pesadas: Mapped[int]

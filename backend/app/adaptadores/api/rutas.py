@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.adaptadores.api import esquemas
 from app.adaptadores.api.dependencias import administrador, token_de_sesion, unidad_de_trabajo, usuario_actual
-from app.casos_uso import galpones, inventario, lineas, lotes, registros, usuarios
+from app.casos_uso import galpones, inventario, lineas, lotes, registros, sanidad, usuarios
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import fechas
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Usuario
+from app.dominio.sanidad import PuntoCurva, TareaPlan
 
 router = APIRouter()
 protegido = APIRouter(dependencies=[Depends(usuario_actual)])
@@ -45,12 +46,105 @@ def resumen_galpones(uow: UnidadDep, fecha: Annotated[date | None, Query()] = No
     status_code=status.HTTP_201_CREATED,
 )
 def crear_linea(datos: esquemas.LineaIn, uow: UnidadDep):
-    return lineas.crear_linea(uow, datos.nombre)
+    return lineas.crear_linea(uow, datos.nombre, datos.plantilla)
 
 
 @protegido.get("/lineas", response_model=list[esquemas.LineaOut])
 def listar_lineas(uow: UnidadDep):
     return lineas.listar_lineas(uow)
+
+
+@protegido.get("/lineas/plantillas", response_model=list[str])
+def plantillas_de_lineas():
+    return lineas.plantillas_disponibles()
+
+
+@protegido.patch("/lineas/{linea_id}", response_model=esquemas.LineaOut)
+def renombrar_linea(linea_id: int, datos: esquemas.LineaNombreIn, uow: UnidadDep, quien: SoloAdmin):
+    return lineas.renombrar_linea(uow, quien, linea_id, datos.nombre, fechas.ahora_utc())
+
+
+@protegido.get("/lineas/{linea_id}/plan", response_model=list[esquemas.TareaPlanOut])
+def ver_plan(linea_id: int, uow: UnidadDep):
+    return sanidad.ver_plan(uow, linea_id)
+
+
+@protegido.put("/lineas/{linea_id}/plan", response_model=list[esquemas.TareaPlanOut])
+def definir_plan(linea_id: int, datos: list[esquemas.TareaPlanIn], uow: UnidadDep, quien: SoloAdmin):
+    tareas = [TareaPlan(linea_id, t.nombre, t.tipo, t.semana_ideal, t.semana_max, t.nota, id=t.id) for t in datos]
+    return sanidad.definir_plan(uow, quien, linea_id, tareas, fechas.ahora_utc())
+
+
+@protegido.get("/lineas/{linea_id}/curva", response_model=list[esquemas.PuntoCurvaIO])
+def ver_curva(linea_id: int, uow: UnidadDep):
+    return sanidad.ver_curva(uow, linea_id)
+
+
+@protegido.put("/lineas/{linea_id}/curva", response_model=list[esquemas.PuntoCurvaIO])
+def definir_curva(linea_id: int, datos: list[esquemas.PuntoCurvaIO], uow: UnidadDep, quien: SoloAdmin):
+    puntos = [PuntoCurva(p.semana, p.postura_pct, p.peso_g) for p in datos]
+    return sanidad.definir_curva(uow, quien, linea_id, puntos, fechas.ahora_utc())
+
+
+@protegido.get("/sanidad", response_model=esquemas.PanoramaOut)
+def panorama_de_sanidad(uow: UnidadDep, fecha: Annotated[date | None, Query()] = None):
+    panorama = sanidad.panorama(uow, fecha or fechas.fecha_en_granja(datetime.now(UTC)))
+    return esquemas.PanoramaOut(
+        fecha=panorama.fecha,
+        alertas=panorama.alertas,
+        galpones=[
+            esquemas.SanidadGalponOut(
+                galpon_id=g.galpon_id,
+                galpon=g.galpon,
+                lote_id=g.lote_id,
+                linea=g.linea,
+                edad_semanas=g.edad_semanas,
+                etapa=g.etapa,
+                aves_vivas=g.aves_vivas,
+                tareas=[
+                    esquemas.TareaDelLoteOut(
+                        tarea_id=t.tarea.id,
+                        nombre=t.tarea.nombre,
+                        tipo=t.tarea.tipo,
+                        semana_ideal=t.tarea.semana_ideal,
+                        semana_max=t.tarea.semana_max,
+                        nota_plan=t.tarea.nota,
+                        estado=t.estado,
+                        aplicada_en=t.aplicada_en,
+                        nota=t.nota,
+                        cumplimiento_id=t.cumplimiento_id,
+                    )
+                    for t in g.tareas
+                ],
+                pesajes=g.pesajes,
+                peso=g.peso,
+                postura=g.postura,
+            )
+            for g in panorama.galpones
+        ],
+    )
+
+
+@protegido.put("/lotes/{lote_id}/cumplimientos/{cumplimiento_id}", response_model=esquemas.CumplimientoOut)
+def marcar_aplicada(
+    lote_id: int, cumplimiento_id: uuid.UUID, datos: esquemas.CumplimientoIn, uow: UnidadDep, quien: UsuarioDep
+):
+    return sanidad.marcar_aplicada(uow, quien, lote_id, datos.tarea_id, cumplimiento_id, datos.fecha, datos.nota)
+
+
+@protegido.delete("/cumplimientos/{cumplimiento_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deshacer_aplicacion(cumplimiento_id: uuid.UUID, uow: UnidadDep, quien: UsuarioDep):
+    sanidad.deshacer_aplicacion(uow, quien, cumplimiento_id, fechas.ahora_utc())
+
+
+@protegido.put("/lotes/{lote_id}/pesajes/{pesaje_id}", response_model=esquemas.PesajeOut)
+def registrar_pesaje(lote_id: int, pesaje_id: uuid.UUID, datos: esquemas.PesajeIn, uow: UnidadDep):
+    return sanidad.registrar_pesaje(uow, lote_id, pesaje_id, datos.fecha, datos.peso_g, datos.aves_pesadas)
+
+
+@protegido.delete("/pesajes/{pesaje_id}", status_code=status.HTTP_204_NO_CONTENT)
+def quitar_pesaje(pesaje_id: uuid.UUID, uow: UnidadDep, quien: UsuarioDep):
+    sanidad.quitar_pesaje(uow, quien, pesaje_id, fechas.ahora_utc())
 
 
 @protegido.post(

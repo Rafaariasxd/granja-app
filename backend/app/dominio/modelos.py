@@ -21,6 +21,7 @@ class Galpon:
 @dataclass
 class LineaGenetica:
     nombre: str
+    revisada: bool = False
     id: int | None = None
 
 
