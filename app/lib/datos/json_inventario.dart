@@ -20,7 +20,7 @@ Etapa? _etapa(Object? texto) => texto == null ? null : Etapa.values.byName(texto
 
 double? _numero(Object? valor) => (valor as num?)?.toDouble();
 
-Insumo _insumo(Map<String, dynamic> json) => Insumo(
+Insumo insumoDesdeJson(Map<String, dynamic> json) => Insumo(
   id: json['id'] as int,
   nombre: json['nombre'] as String,
   tipo: _tipo(json['tipo'] as String),
@@ -29,7 +29,7 @@ Insumo _insumo(Map<String, dynamic> json) => Insumo(
 );
 
 Existencia _existencia(Map<String, dynamic> e) => Existencia(
-  insumo: _insumo(e['insumo'] as Map<String, dynamic>),
+  insumo: insumoDesdeJson(e['insumo'] as Map<String, dynamic>),
   stockKg: _numero(e['stock_kg'])!,
   bultos: _numero(e['bultos']),
   consumoDiarioKg: _numero(e['consumo_diario_kg']),
