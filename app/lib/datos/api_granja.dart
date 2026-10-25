@@ -120,6 +120,39 @@ class ApiGranja {
     );
   }
 
+  Future<String> galponesJson() => _leerJson('galpones');
+
+  Future<String> insumosJson() => _leerJson('insumos');
+
+  Future<String> formulaJson(int productoId) => _leerJson('alimentos/$productoId/formula');
+
+  Future<void> crearBodega(String nombre, String tipo) => _mandar('POST', 'bodegas', {'nombre': nombre, 'tipo': tipo});
+
+  Future<void> asignarGalpones(int bodegaId, List<int> galponIds) =>
+      _mandar('PUT', 'bodegas/$bodegaId/galpones', {'galpon_ids': galponIds});
+
+  Future<void> crearInsumo(Map<String, Object?> insumo) => _mandar('POST', 'insumos', insumo);
+
+  Future<void> definirFormula(int productoId, List<Map<String, Object?>> ingredientes) =>
+      _mandar('PUT', 'alimentos/$productoId/formula', ingredientes);
+
+  Future<void> definirAlimentoEnUso(int bodegaId, String etapa, int insumoId) =>
+      _mandar('PUT', 'bodegas/$bodegaId/alimento-en-uso/$etapa', {'insumo_id': insumoId});
+
+  Future<String> _leerJson(String ruta) async {
+    final respuesta = await _enviar(() => _cliente.get(base.resolve(ruta), headers: _autorizacion()));
+    return utf8.decode(respuesta.bodyBytes);
+  }
+
+  Future<void> _mandar(String metodo, String ruta, Object cuerpo) async {
+    await _enviar(() async {
+      final peticion = http.Request(metodo, base.resolve(ruta))
+        ..headers.addAll({'Content-Type': 'application/json', ..._autorizacion()})
+        ..body = jsonEncode(cuerpo);
+      return http.Response.fromStream(await _cliente.send(peticion));
+    });
+  }
+
   Map<String, String> _autorizacion() => {if (token != null) 'Authorization': 'Bearer $token'};
 
   Future<List<ResumenGalpon>> resumen(DateTime fecha) async {

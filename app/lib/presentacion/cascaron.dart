@@ -3,11 +3,20 @@ import 'package:flutter/material.dart';
 import 'tema.dart';
 
 class Cascaron extends StatefulWidget {
-  const Cascaron({super.key, required this.granja, required this.bodega, this.alAbrirBodega});
+  const Cascaron({
+    super.key,
+    required this.granja,
+    required this.bodega,
+    this.alAbrirBodega,
+    this.administrar,
+    this.alAbrirAdministrar,
+  });
 
   final Widget granja;
   final Widget bodega;
   final VoidCallback? alAbrirBodega;
+  final Widget? administrar;
+  final VoidCallback? alAbrirAdministrar;
 
   @override
   State<Cascaron> createState() => _CascaronState();
@@ -19,7 +28,10 @@ class _CascaronState extends State<Cascaron> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _actual, children: [widget.granja, widget.bodega]),
+      body: IndexedStack(
+        index: _actual,
+        children: [widget.granja, widget.bodega, if (widget.administrar != null) widget.administrar!],
+      ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           height: 72,
@@ -44,14 +56,25 @@ class _CascaronState extends State<Cascaron> {
           onDestinationSelected: (indice) {
             setState(() => _actual = indice);
             if (indice == 1) widget.alAbrirBodega?.call();
+            if (indice == 2) widget.alAbrirAdministrar?.call();
           },
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Granja'),
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Granja',
+            ),
+            const NavigationDestination(
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2),
               label: 'Bodega',
             ),
+            if (widget.administrar != null)
+              const NavigationDestination(
+                icon: Icon(Icons.tune_outlined),
+                selectedIcon: Icon(Icons.tune),
+                label: 'Administrar',
+              ),
           ],
         ),
       ),

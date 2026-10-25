@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as ruta;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'datos/administracion.dart';
 import 'datos/almacen_sesion_segura.dart';
 import 'datos/almacen_sqlite.dart';
 import 'datos/api_granja.dart';
@@ -15,9 +16,11 @@ import 'datos/resumen.dart';
 import 'datos/servicio_sesion.dart';
 import 'datos/sincronizador.dart';
 import 'dominio/modelos.dart';
+import 'presentacion/administrar.dart';
 import 'presentacion/al_reanudar.dart';
 import 'presentacion/bodega.dart';
 import 'presentacion/cascaron.dart';
+import 'presentacion/estado_administracion.dart';
 import 'presentacion/estado_bodega.dart';
 import 'presentacion/estado_envios.dart';
 import 'presentacion/estado_inicio.dart';
@@ -43,16 +46,19 @@ Future<void> main() async {
   final envios = EstadoEnvios(Sincronizador(almacen, api), almacen);
   final inicio = EstadoInicio(RepositorioResumen(api, AlmacenResumenSqlite(base)));
   final bodega = EstadoBodega(RepositorioBodega(api, AlmacenBodegaSqlite(base)));
+  final administracion = EstadoAdministracion(RepositorioAdministracion(api));
   sesion
     ..vigilar(envios, () => envios.sesionVencida)
     ..vigilar(inicio, () => inicio.sesionVencida)
-    ..vigilar(bodega, () => bodega.sesionVencida);
+    ..vigilar(bodega, () => bodega.sesionVencida)
+    ..vigilar(administracion, () => administracion.sesionVencida);
   runApp(
     GranjaApp(
       sesion: sesion,
       envios: envios,
       inicio: inicio,
       bodega: bodega,
+      administracion: administracion,
       api: api,
       buscador: BuscadorRegistro(api, almacen),
     ),
@@ -66,6 +72,7 @@ class GranjaApp extends StatelessWidget {
     required this.envios,
     required this.inicio,
     required this.bodega,
+    required this.administracion,
     required this.api,
     required this.buscador,
   });
@@ -74,6 +81,7 @@ class GranjaApp extends StatelessWidget {
   final EstadoEnvios envios;
   final EstadoInicio inicio;
   final EstadoBodega bodega;
+  final EstadoAdministracion administracion;
   final ApiGranja api;
   final BuscadorRegistro buscador;
 
@@ -89,6 +97,7 @@ class GranjaApp extends StatelessWidget {
             envios.enviar();
             inicio.cargar();
             bodega.cargar();
+            if (sesion.sesion?.esAdministrador ?? false) administracion.cargar();
           },
           child: Cascaron(
             alAbrirBodega: bodega.cargar,
@@ -101,6 +110,8 @@ class GranjaApp extends StatelessWidget {
               alCorregir: (galpon) => _corregir(contexto, galpon),
             ),
             bodega: BodegaPantalla(estado: bodega),
+            administrar: (sesion.sesion?.esAdministrador ?? false) ? AdministrarPantalla(estado: administracion) : null,
+            alAbrirAdministrar: administracion.cargar,
           ),
         ),
       ),
