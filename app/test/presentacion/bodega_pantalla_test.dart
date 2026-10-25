@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:granja_app/datos/api_granja.dart';
 import 'package:granja_app/datos/bodega.dart';
+import 'package:granja_app/datos/operaciones.dart';
+import 'package:granja_app/dominio/inventario.dart';
 import 'package:granja_app/presentacion/bodega.dart';
 import 'package:granja_app/presentacion/estado_bodega.dart';
 import 'package:granja_app/presentacion/formato.dart';
@@ -13,6 +15,8 @@ import 'package:http/testing.dart';
 
 final base = Uri.parse('http://granja.test/');
 final ahora = DateTime.utc(2026, 10, 25, 17);
+
+Map<String, dynamic> sinOperacion(Map<String, dynamic> cuerpo) => {...cuerpo}..remove('operacion_id');
 
 Map<String, Object?> insumo(int id, String nombre, String tipo, {String? etapa, double? porBulto}) => {
   'id': id,
@@ -60,6 +64,8 @@ Map<String, Object?> etapa(String nombre, double stock, double consumo, double d
   'nivel': nivel,
   'en_uso_id': enUso,
 };
+
+Insumo insumoDe(int id, String nombre) => Insumo(id: id, nombre: nombre, tipo: TipoInsumo.materiaPrima, kgPorBulto: 50);
 
 final tablero = {
   'bodegas': [
@@ -140,12 +146,17 @@ class Montaje {
       return http.Response.bytes(utf8.encode(jsonEncode(inventario ?? tablero)), 200);
     });
     almacen = AlmacenBodegaEnMemoria();
-    estado = EstadoBodega(RepositorioBodega(ApiGranja(base, cliente: cliente), almacen), reloj: () => ahora);
+    operaciones = AlmacenOperacionesEnMemoria();
+    estado = EstadoBodega(
+      RepositorioBodega(ApiGranja(base, cliente: cliente), almacen, operaciones),
+      reloj: () => ahora,
+    );
   }
 
   final peticiones = <String>[];
   final cuerpos = <Map<String, dynamic>>[];
   late final AlmacenBodegaEnMemoria almacen;
+  late final AlmacenOperacionesEnMemoria operaciones;
   late final EstadoBodega estado;
 
   Widget get app => MaterialApp(
@@ -237,7 +248,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(montaje.peticiones, contains('POST /insumos/1/compras'));
-    expect(montaje.cuerpos.single, {'bodega_id': 3, 'bultos': 1.5});
+    expect(sinOperacion(montaje.cuerpos.single), {'bodega_id': 3, 'bultos': 1.5, 'fecha': '2026-10-25'});
+    expect(montaje.cuerpos.single['operacion_id'], isA<String>());
     expect(find.text('Compra guardada'), findsOneWidget);
     expect(montaje.peticiones.where((p) => p == 'GET /inventario').length, 2);
   });
@@ -253,7 +265,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(montaje.peticiones, contains('POST /insumos/4/compras'));
-    expect(montaje.cuerpos.single, {'bodega_id': 2, 'bultos': 1});
+    expect(sinOperacion(montaje.cuerpos.single), {'bodega_id': 2, 'bultos': 1, 'fecha': '2026-10-25'});
   });
 
   testWidgets('el alimento preparado no se compra', (tester) async {
@@ -292,11 +304,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(montaje.peticiones, contains('POST /alimentos/3/preparaciones'));
-    expect(montaje.cuerpos.single, {'desde_bodega_id': 3, 'hacia_bodega_id': 2, 'kg': 500});
+    expect(sinOperacion(montaje.cuerpos.single), {
+      'desde_bodega_id': 3,
+      'hacia_bodega_id': 2,
+      'kg': 500,
+      'fecha': '2026-10-25',
+    });
     expect(find.text('Preparación guardada'), findsOneWidget);
   });
 
-  testWidgets('si falta materia prima muestra lo que dice el servidor y no cierra', (tester) async {
+  testWidgets('si el servidor rechaza la preparación queda a la vista con su motivo y se puede descartar', (
+    tester,
+  ) async {
     final montaje = Montaje(
       servidor: (p) => p.method == 'POST'
           ? http.Response.bytes(
@@ -316,15 +335,24 @@ void main() {
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
+    expect(find.text('1 no se pudo registrar'), findsOneWidget);
+    await tester.tap(find.text('1 no se pudo registrar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Preparación: 900 kg de Mezcla ponedora'), findsOneWidget);
     expect(find.text('no alcanza la materia prima, falta: Soya (20 kg)'), findsOneWidget);
-    expect(find.text('Preparé Mezcla ponedora'), findsOneWidget);
+
+    await tester.tap(find.text('Descartar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Preparación: 900 kg de Mezcla ponedora'), findsNothing);
+    expect(await montaje.operaciones.sinResolver(), isEmpty);
   });
 
-  testWidgets('sin señal una compra explica que hace falta internet', (tester) async {
-    var llamadas = 0;
+  testWidgets('sin señal la compra se guarda y se envía cuando vuelve la señal', (tester) async {
+    var hayRed = true;
     final montaje = Montaje(
       servidor: (p) {
-        if (p.method == 'GET' && llamadas++ == 0) return http.Response.bytes(utf8.encode(jsonEncode(tablero)), 200);
+        if (p.method == 'GET' && hayRed) return http.Response.bytes(utf8.encode(jsonEncode(tablero)), 200);
+        if (hayRed) return http.Response('{}', 201);
         throw http.ClientException('sin red');
       },
     );
@@ -332,12 +360,50 @@ void main() {
     await elegir(tester, 'Bodega de materia prima');
     await tester.tap(find.text('Maíz'));
     await tester.pumpAndSettle();
+    hayRed = false;
 
     await tester.tap(find.text('Guardar compra'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No hay señal'), findsOneWidget);
-    expect(find.text('Llegó Maíz'), findsOneWidget);
+    expect(find.text('Llegó Maíz'), findsNothing);
+    expect(find.text('Compra guardada. Se envía cuando haya señal'), findsOneWidget);
+    expect(find.text('1 cosa sin enviar'), findsOneWidget);
+    expect(find.text('Se envían solas cuando haya señal'), findsOneWidget);
+    final guardada = (await montaje.operaciones.sinResolver()).single;
+    expect(guardada.descripcion, '1 bulto de Maíz');
+
+    hayRed = true;
+    await montaje.estado.cargar();
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 cosa sin enviar'), findsNothing);
+    expect(montaje.peticiones, contains('POST /insumos/1/compras'));
+    expect(montaje.cuerpos.map((c) => c['operacion_id']).toSet(), {guardada.id});
+    expect(await montaje.operaciones.sinResolver(), isEmpty);
+  });
+
+  testWidgets('lo sin enviar se manda en el orden en que se guardó y se detiene si falta la señal', (tester) async {
+    var hayRed = false;
+    final montaje = Montaje(
+      servidor: (p) {
+        if (!hayRed) throw http.ClientException('sin red');
+        return p.method == 'GET'
+            ? http.Response.bytes(utf8.encode(jsonEncode(tablero)), 200)
+            : http.Response('{}', 201);
+      },
+    );
+    await montaje.almacen.guardar(BodegaGuardada(actualizadoEn: ahora, datos: jsonEncode(tablero)));
+    await abrir(tester, montaje);
+    final maiz = insumoDe(1, 'Maíz');
+    await montaje.estado.registrarCompra(maiz, 3, 2);
+    await montaje.estado.registrarCompra(maiz, 3, 1);
+    expect(montaje.estado.porEnviar, 2);
+
+    hayRed = true;
+    await montaje.estado.cargar();
+
+    expect(montaje.estado.porEnviar, 0);
+    expect([for (final c in montaje.cuerpos) c['bultos']].reversed.take(2).toList().reversed, [2, 1]);
   });
 
   testWidgets('sin señal usa la última copia y lo avisa', (tester) async {

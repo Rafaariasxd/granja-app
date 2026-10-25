@@ -95,30 +95,33 @@ class ApiGranja {
     return utf8.decode(respuesta.bodyBytes);
   }
 
-  Future<void> registrarCompra(int insumoId, {required int bodegaId, required double bultos}) async {
-    await _enviar(
-      () => _cliente.post(
-        base.resolve('insumos/$insumoId/compras'),
-        headers: {'Content-Type': 'application/json', ..._autorizacion()},
-        body: jsonEncode({'bodega_id': bodegaId, 'bultos': bultos}),
-      ),
-    );
-  }
+  Future<void> registrarCompra(
+    int insumoId, {
+    required String operacionId,
+    required int bodegaId,
+    required double bultos,
+    required String fecha,
+  }) => _mandar('POST', 'insumos/$insumoId/compras', {
+    'operacion_id': operacionId,
+    'bodega_id': bodegaId,
+    'bultos': bultos,
+    'fecha': fecha,
+  });
 
   Future<void> prepararAlimento(
     int productoId, {
+    required String operacionId,
     required int desdeBodegaId,
     required int haciaBodegaId,
     required double kg,
-  }) async {
-    await _enviar(
-      () => _cliente.post(
-        base.resolve('alimentos/$productoId/preparaciones'),
-        headers: {'Content-Type': 'application/json', ..._autorizacion()},
-        body: jsonEncode({'desde_bodega_id': desdeBodegaId, 'hacia_bodega_id': haciaBodegaId, 'kg': kg}),
-      ),
-    );
-  }
+    required String fecha,
+  }) => _mandar('POST', 'alimentos/$productoId/preparaciones', {
+    'operacion_id': operacionId,
+    'desde_bodega_id': desdeBodegaId,
+    'hacia_bodega_id': haciaBodegaId,
+    'kg': kg,
+    'fecha': fecha,
+  });
 
   Future<String> galponesJson() => _leerJson('galpones');
 
