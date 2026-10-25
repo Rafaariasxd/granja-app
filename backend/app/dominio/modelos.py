@@ -93,3 +93,84 @@ class Evento:
     usuario_id: int
     momento: datetime
     id: int | None = None
+
+
+class TipoInsumo(StrEnum):
+    MATERIA_PRIMA = "materia_prima"
+    ALIMENTO_COMPRADO = "alimento_comprado"
+    ALIMENTO_PREPARADO = "alimento_preparado"
+
+
+class Motivo(StrEnum):
+    COMPRA = "compra"
+    PREPARACION = "preparacion"
+    USO_EN_MEZCLA = "uso_en_mezcla"
+    CONSUMO = "consumo"
+    AJUSTE = "ajuste"
+
+
+@dataclass
+class Insumo:
+    nombre: str
+    tipo: TipoInsumo
+    kg_por_bulto: float | None = None
+    etapa: Etapa | None = None
+    activo: bool = True
+    id: int | None = None
+
+
+@dataclass(frozen=True)
+class Ingrediente:
+    insumo_id: int
+    porcentaje: float
+
+
+@dataclass
+class MovimientoInsumo:
+    insumo_id: int
+    fecha: date
+    kg: float
+    motivo: Motivo
+    usuario_id: int | None = None
+    nota: str = ""
+    registro_id: uuid.UUID | None = None
+    id: int | None = None
+
+
+@dataclass(frozen=True)
+class ExistenciaInsumo:
+    insumo: Insumo
+    stock_kg: float
+    bultos: float | None
+    consumo_diario_kg: float | None
+    dias: float | None
+    nivel: str
+
+
+@dataclass(frozen=True)
+class CoberturaEtapa:
+    etapa: Etapa
+    consumo_diario_kg: float | None
+    stock_kg: float
+    dias: float | None
+    nivel: str
+    en_uso_id: int | None
+
+
+@dataclass(frozen=True)
+class MezclaPosible:
+    producto_id: int
+    producto: str
+    stock_kg: float
+    kg_posibles: float
+    limitante_id: int
+    limitante: str
+    dias: float | None
+    nivel: str
+
+
+@dataclass(frozen=True)
+class EstadoInventario:
+    existencias: list[ExistenciaInsumo]
+    etapas: list[CoberturaEtapa]
+    mezclas: list[MezclaPosible]

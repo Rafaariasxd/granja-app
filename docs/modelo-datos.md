@@ -86,3 +86,41 @@ erDiagram
 | Alerta de baja postura | postura por debajo de la curva estándar en más de 5 puntos durante 3 días seguidos |
 
 Las semanas de corte de etapa y el umbral de la alerta son configurables, porque cambian según la línea y el criterio del veterinario.
+
+## Inventario de alimento (implementado)
+
+```mermaid
+erDiagram
+    INSUMO ||--o{ MOVIMIENTO_INSUMO : "suma de movimientos"
+    INSUMO ||--o{ FORMULA_INGREDIENTE : "producto"
+    INSUMO ||--o{ FORMULA_INGREDIENTE : "materia prima"
+    INSUMO ||--o| ALIMENTO_EN_USO : "por etapa"
+    REGISTRO_DIARIO ||--o| MOVIMIENTO_INSUMO : "consumo del día"
+
+    INSUMO {
+        int id
+        string nombre
+        string tipo "materia_prima, alimento_comprado, alimento_preparado"
+        string etapa "cria, levante, produccion"
+        float kg_por_bulto
+    }
+    FORMULA_INGREDIENTE {
+        int producto_id
+        int insumo_id
+        float porcentaje "suman 100 por producto"
+    }
+    MOVIMIENTO_INSUMO {
+        int insumo_id
+        date fecha
+        float kg "positivo entra, negativo sale"
+        string motivo "compra, preparacion, uso_en_mezcla, consumo, ajuste"
+        int usuario_id
+        uuid registro_id "solo en el consumo del día"
+    }
+    ALIMENTO_EN_USO {
+        string etapa
+        int insumo_id
+    }
+```
+
+El stock de un insumo es la suma de sus movimientos. `registro_id` es único: reenviar o corregir un registro del día actualiza su movimiento de consumo en vez de crear otro.

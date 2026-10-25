@@ -3,10 +3,10 @@ from datetime import UTC, date, datetime, timedelta
 
 from app.adaptadores.db.conexion import SessionLocal
 from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
-from app.casos_uso import galpones, lineas, lotes, registros
+from app.casos_uso import galpones, inventario, lineas, lotes, registros
 from app.casos_uso.puertos import UnidadDeTrabajo
-from app.dominio.fechas import fecha_en_granja
-from app.dominio.modelos import Lote
+from app.dominio.fechas import ahora_utc, fecha_en_granja
+from app.dominio.modelos import Etapa, Ingrediente, Lote, Rol, TipoInsumo, Usuario
 
 CAPACIDADES = {
     "Galpón 1": 6000,
@@ -22,6 +22,16 @@ POSTURA_ULTIMA_SEMANA = {
     "Galpón 1": [93, 92, 93, 91, 87, 86, 86],
     "Galpón 3": [89, 90, 88, 89, 90, 89, None],
 }
+
+
+MATERIAS_PRIMAS = {
+    "Maíz": (50, 60),
+    "Soya": (40, 30),
+    "Calcio": (25, 24),
+    "Palmiste": (40, 20),
+    "Premezcla de vitaminas": (25, 8),
+}
+FORMULA_EJEMPLO = {"Maíz": 55, "Soya": 22, "Calcio": 10, "Palmiste": 10, "Premezcla de vitaminas": 3}
 
 
 def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
@@ -48,6 +58,10 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
             ),
         )
 
+    administrador = next((u for u in uow.usuarios.listar() if u.rol == Rol.ADMINISTRADOR), None)
+    if administrador is not None:
+        _cargar_inventario(uow, administrador, hoy - timedelta(days=7))
+
     vivas = {"Galpón 1": 2500, "Galpón 3": 1650, "Galpón 5": 960}
     for dia in range(7):
         fecha = hoy - timedelta(days=6 - dia)
@@ -60,6 +74,22 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
             _registrar(uow, ids[nombre], fecha, round(vivas[nombre] * postura / 100), muertas, vivas[nombre] * 0.11)
         vivas["Galpón 5"] -= 1
         _registrar(uow, ids["Galpón 5"], fecha, 0, 1, vivas["Galpón 5"] * 0.045)
+
+
+def _cargar_inventario(uow: UnidadDeTrabajo, quien: Usuario, fecha: date) -> None:
+    ids = {}
+    for nombre, (kg_por_bulto, bultos) in MATERIAS_PRIMAS.items():
+        ids[nombre] = inventario.crear_insumo(uow, nombre, TipoInsumo.MATERIA_PRIMA, None, kg_por_bulto).id
+        inventario.registrar_compra(uow, quien, ids[nombre], fecha, bultos, None)
+    mezcla = inventario.crear_insumo(uow, "Mezcla ponedora", TipoInsumo.ALIMENTO_PREPARADO, Etapa.PRODUCCION, None)
+    inventario.definir_formula(
+        uow, quien, mezcla.id, [Ingrediente(ids[n], pct) for n, pct in FORMULA_EJEMPLO.items()], ahora_utc()
+    )
+    inventario.preparar_alimento(uow, quien, mezcla.id, fecha, 3800)
+    inventario.definir_alimento_en_uso(uow, quien, Etapa.PRODUCCION, mezcla.id, ahora_utc())
+    levante = inventario.crear_insumo(uow, "Italcol levante", TipoInsumo.ALIMENTO_COMPRADO, Etapa.LEVANTE, 40)
+    inventario.registrar_compra(uow, quien, levante.id, fecha, 10, None)
+    inventario.definir_alimento_en_uso(uow, quien, Etapa.LEVANTE, levante.id, ahora_utc())
 
 
 def _registrar(uow: UnidadDeTrabajo, galpon_id: int, fecha: date, huevos: int, muertas: int, alimento: float) -> None:

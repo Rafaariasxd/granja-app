@@ -3,7 +3,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.dominio.modelos import Etapa, Rol
+from app.dominio.modelos import Etapa, Motivo, Rol, TipoInsumo
 
 
 class GalponIn(BaseModel):
@@ -100,3 +100,94 @@ class UsuarioOut(BaseModel):
     nombre: str
     rol: Rol
     activo: bool
+
+
+class InsumoIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=80)
+    tipo: TipoInsumo
+    etapa: Etapa | None = None
+    kg_por_bulto: float | None = Field(default=None, gt=0)
+
+
+class InsumoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    tipo: TipoInsumo
+    etapa: Etapa | None
+    kg_por_bulto: float | None
+
+
+class CompraIn(BaseModel):
+    fecha: date | None = None
+    bultos: float | None = Field(default=None, gt=0)
+    kg: float | None = Field(default=None, gt=0)
+
+
+class AjusteIn(BaseModel):
+    fecha: date | None = None
+    kg_reales: float = Field(ge=0)
+    nota: str = Field(default="", max_length=200)
+
+
+class PreparacionIn(BaseModel):
+    fecha: date | None = None
+    kg: float = Field(gt=0)
+
+
+class IngredienteIn(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    insumo_id: int
+    porcentaje: float = Field(gt=0, le=100)
+
+
+class EnUsoIn(BaseModel):
+    insumo_id: int
+
+
+class MovimientoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    insumo_id: int
+    fecha: date
+    kg: float
+    motivo: Motivo
+    nota: str
+
+
+class ExistenciaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    insumo: InsumoOut
+    stock_kg: float
+    bultos: float | None
+    consumo_diario_kg: float | None
+    dias: float | None
+    nivel: str
+
+
+class CoberturaEtapaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    etapa: Etapa
+    consumo_diario_kg: float | None
+    stock_kg: float
+    dias: float | None
+    nivel: str
+    en_uso_id: int | None
+
+
+class MezclaPosibleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    producto_id: int
+    producto: str
+    stock_kg: float
+    kg_posibles: float
+    limitante_id: int
+    limitante: str
+    dias: float | None
+    nivel: str
+
+
+class InventarioOut(BaseModel):
+    existencias: list[ExistenciaOut]
+    etapas: list[CoberturaEtapaOut]
+    mezclas: list[MezclaPosibleOut]

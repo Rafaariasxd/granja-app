@@ -2,7 +2,19 @@ import uuid
 from datetime import date
 from typing import Protocol
 
-from app.dominio.modelos import Evento, Galpon, LineaGenetica, Lote, RegistroDiario, Sesion, Usuario
+from app.dominio.modelos import (
+    Etapa,
+    Evento,
+    Galpon,
+    Ingrediente,
+    Insumo,
+    LineaGenetica,
+    Lote,
+    MovimientoInsumo,
+    RegistroDiario,
+    Sesion,
+    Usuario,
+)
 
 
 class RepoGalpones(Protocol):
@@ -33,6 +45,7 @@ class RepoRegistros(Protocol):
     def ultima_fecha(self, lote_id: int) -> date | None: ...
     def obtener(self, registro_id: uuid.UUID) -> RegistroDiario | None: ...
     def eliminar(self, registro_id: uuid.UUID) -> None: ...
+    def entre(self, desde: date, hasta: date) -> list[RegistroDiario]: ...
 
 
 class RepoUsuarios(Protocol):
@@ -55,6 +68,33 @@ class RepoBitacora(Protocol):
     def listar(self) -> list[Evento]: ...
 
 
+class RepoInsumos(Protocol):
+    def agregar(self, insumo: Insumo) -> Insumo: ...
+    def obtener(self, insumo_id: int) -> Insumo | None: ...
+    def por_nombre(self, nombre: str) -> Insumo | None: ...
+    def listar(self) -> list[Insumo]: ...
+    def stocks(self) -> dict[int, float]: ...
+
+
+class RepoMovimientos(Protocol):
+    def agregar(self, movimiento: MovimientoInsumo) -> MovimientoInsumo: ...
+    def guardar_consumo(self, movimiento: MovimientoInsumo) -> None: ...
+    def quitar_consumo(self, registro_id: uuid.UUID) -> None: ...
+    def del_insumo(self, insumo_id: int, limite: int) -> list[MovimientoInsumo]: ...
+
+
+class RepoFormulas(Protocol):
+    def guardar(self, producto_id: int, ingredientes: list[Ingrediente]) -> None: ...
+    def de(self, producto_id: int) -> list[Ingrediente]: ...
+    def todas(self) -> dict[int, list[Ingrediente]]: ...
+
+
+class RepoAlimentoEnUso(Protocol):
+    def definir(self, etapa: Etapa, insumo_id: int) -> None: ...
+    def de(self, etapa: Etapa) -> int | None: ...
+    def todos(self) -> dict[Etapa, int]: ...
+
+
 class UnidadDeTrabajo(Protocol):
     galpones: RepoGalpones
     lineas: RepoLineas
@@ -63,5 +103,9 @@ class UnidadDeTrabajo(Protocol):
     usuarios: RepoUsuarios
     sesiones: RepoSesiones
     bitacora: RepoBitacora
+    insumos: RepoInsumos
+    movimientos: RepoMovimientos
+    formulas: RepoFormulas
+    alimento_en_uso: RepoAlimentoEnUso
 
     def confirmar(self) -> None: ...
