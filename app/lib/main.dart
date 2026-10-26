@@ -218,7 +218,28 @@ class GranjaApp extends StatelessWidget {
         builder: (_) => RegistroPantalla(formulario: formulario, envios: envios),
       ),
     );
-    if (guardado == true) await inicio.cargar();
+    if (guardado != true) return;
+    await inicio.cargar();
+    if (context.mounted) await _pasarABodega(context, galpon.nombre, formulario.huevos - formulario.rotos);
+  }
+
+  Future<void> _pasarABodega(BuildContext context, String galpon, int recogidos) async {
+    final hayTamanos = huevos.bodega?.existencias.any((e) => e.activa) ?? false;
+    if (recogidos <= 0 || !hayTamanos) return;
+    final guardado = await abrirHoja<bool>(
+      context: context,
+      builder: (_) => HojaHuevoDelDia(estado: huevos, origen: galpon, recogidos: recogidos),
+    );
+    if (guardado == true && context.mounted) {
+      final sinEnviar = huevos.porEnviar > 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            sinEnviar ? 'Huevo guardado en la bodega. Se envía cuando haya señal' : 'Huevo guardado en la bodega',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _corregir(BuildContext context, ResumenGalpon galpon) async {
