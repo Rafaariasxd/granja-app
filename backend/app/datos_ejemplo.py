@@ -3,10 +3,11 @@ from datetime import UTC, date, datetime, timedelta
 
 from app.adaptadores.db.conexion import SessionLocal
 from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
-from app.casos_uso import galpones, inventario, lineas, lotes, registros, sanidad
+from app.casos_uso import finanzas, galpones, inventario, lineas, lotes, registros, sanidad
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import produccion
 from app.dominio.fechas import ahora_utc, fecha_en_granja
+from app.dominio.finanzas import MovimientoDinero, Rubro
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Rol, TipoBodega, TipoInsumo, Usuario
 from app.dominio.sanidad import punto_en
 
@@ -62,7 +63,9 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
         )
 
     administrador = next((u for u in uow.usuarios.listar() if u.rol == Rol.ADMINISTRADOR), None)
-    _cargar_sanidad(uow, administrador or Usuario("ejemplo", Rol.ADMINISTRADOR, ""), creados, hoy)
+    quien = administrador or Usuario("ejemplo", Rol.ADMINISTRADOR, "")
+    _cargar_sanidad(uow, quien, creados, hoy)
+    _cargar_finanzas(uow, quien, creados["Galpón 1"], hoy)
     if administrador is not None:
         _cargar_inventario(uow, administrador, hoy - timedelta(days=7), ids)
 
@@ -78,6 +81,42 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
             _registrar(uow, ids[nombre], fecha, round(vivas[nombre] * postura / 100), muertas, vivas[nombre] * 0.11)
         vivas["Galpón 5"] -= 1
         _registrar(uow, ids["Galpón 5"], fecha, 0, 1, vivas["Galpón 5"] * 0.045)
+
+
+VENTAS_EJEMPLO = [
+    (3, "AA", 9000, 2700000, "Tienda La Esperanza"),
+    (3, "A", 4500, 1215000, "Tienda La Esperanza"),
+    (10, "AA", 8400, 2520000, "Plaza de mercado"),
+    (17, "B", 6600, 1584000, "Plaza de mercado"),
+]
+GASTOS_EJEMPLO = [
+    (2, Rubro.ALIMENTO, 1480000, "Camión de alimento de ponedora"),
+    (9, Rubro.VACUNAS_MEDICINAS, 215000, "Vacunas del mes"),
+    (14, Rubro.MANO_DE_OBRA, 900000, "Pago quincenal"),
+]
+
+
+def _cargar_finanzas(uow: UnidadDeTrabajo, quien: Usuario, lote: Lote, hoy: date) -> None:
+    for nombre in finanzas.CATEGORIAS_INICIALES:
+        if uow.categorias.por_nombre(nombre) is None:
+            finanzas.crear_categoria(uow, nombre)
+    for dias, categoria, huevos, valor, cliente in VENTAS_EJEMPLO:
+        movimiento = MovimientoDinero(
+            id=uuid.uuid4(),
+            fecha=hoy - timedelta(days=dias),
+            rubro=Rubro.VENTA_HUEVO,
+            valor=valor,
+            lote_id=lote.id,
+            categoria_id=uow.categorias.por_nombre(categoria).id,
+            cantidad_huevos=huevos,
+            contraparte=cliente,
+        )
+        finanzas.guardar_movimiento(uow, quien, movimiento)
+    for dias, rubro, valor, descripcion in GASTOS_EJEMPLO:
+        movimiento = MovimientoDinero(
+            id=uuid.uuid4(), fecha=hoy - timedelta(days=dias), rubro=rubro, valor=valor, descripcion=descripcion
+        )
+        finanzas.guardar_movimiento(uow, quien, movimiento)
 
 
 PENDIENTES = {"Galpón 1": {"Newcastle (refuerzo en postura)"}}

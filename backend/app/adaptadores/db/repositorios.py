@@ -8,6 +8,7 @@ from app.adaptadores.db.tablas import (
     TablaAlimentoEnUso,
     TablaBodega,
     TablaBodegaGalpon,
+    TablaCategoriaHuevo,
     TablaCumplimiento,
     TablaCurva,
     TablaEvento,
@@ -17,12 +18,14 @@ from app.adaptadores.db.tablas import (
     TablaLinea,
     TablaLote,
     TablaMovimiento,
+    TablaMovimientoDinero,
     TablaPesaje,
     TablaPlan,
     TablaRegistro,
     TablaSesion,
     TablaUsuario,
 )
+from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero, Rubro
 from app.dominio.modelos import (
     Bodega,
     Etapa,
@@ -646,6 +649,93 @@ class PesajesSql:
         self._session.execute(delete(TablaPesaje).where(TablaPesaje.id == pesaje_id))
 
 
+def _categoria(fila: TablaCategoriaHuevo) -> CategoriaHuevo:
+    return CategoriaHuevo(id=fila.id, nombre=fila.nombre, activa=fila.activa)
+
+
+class CategoriasSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
+        fila = TablaCategoriaHuevo(nombre=categoria.nombre, activa=categoria.activa)
+        self._session.add(fila)
+        self._session.flush()
+        return _categoria(fila)
+
+    def obtener(self, categoria_id: int) -> CategoriaHuevo | None:
+        fila = self._session.get(TablaCategoriaHuevo, categoria_id)
+        return _categoria(fila) if fila else None
+
+    def por_nombre(self, nombre: str) -> CategoriaHuevo | None:
+        fila = self._session.scalar(select(TablaCategoriaHuevo).where(TablaCategoriaHuevo.nombre == nombre))
+        return _categoria(fila) if fila else None
+
+    def listar(self) -> list[CategoriaHuevo]:
+        return [
+            _categoria(f) for f in self._session.scalars(select(TablaCategoriaHuevo).order_by(TablaCategoriaHuevo.id))
+        ]
+
+    def actualizar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
+        fila = self._session.get_one(TablaCategoriaHuevo, categoria.id)
+        fila.nombre = categoria.nombre
+        fila.activa = categoria.activa
+        self._session.flush()
+        return _categoria(fila)
+
+
+def _movimiento_dinero(fila: TablaMovimientoDinero) -> MovimientoDinero:
+    return MovimientoDinero(
+        id=fila.id,
+        fecha=fila.fecha,
+        rubro=Rubro(fila.rubro),
+        valor=fila.valor,
+        descripcion=fila.descripcion,
+        lote_id=fila.lote_id,
+        categoria_id=fila.categoria_id,
+        cantidad_huevos=fila.cantidad_huevos,
+        contraparte=fila.contraparte,
+        usuario_id=fila.usuario_id,
+    )
+
+
+class DineroSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, movimiento: MovimientoDinero) -> MovimientoDinero:
+        fila = self._session.get(TablaMovimientoDinero, movimiento.id)
+        if fila is None:
+            fila = TablaMovimientoDinero(id=movimiento.id)
+            self._session.add(fila)
+        fila.fecha = movimiento.fecha
+        fila.rubro = movimiento.rubro.value
+        fila.valor = movimiento.valor
+        fila.descripcion = movimiento.descripcion
+        fila.lote_id = movimiento.lote_id
+        fila.categoria_id = movimiento.categoria_id
+        fila.cantidad_huevos = movimiento.cantidad_huevos
+        fila.contraparte = movimiento.contraparte
+        fila.usuario_id = movimiento.usuario_id
+        self._session.flush()
+        return _movimiento_dinero(fila)
+
+    def obtener(self, movimiento_id: uuid.UUID) -> MovimientoDinero | None:
+        fila = self._session.get(TablaMovimientoDinero, movimiento_id)
+        return _movimiento_dinero(fila) if fila else None
+
+    def eliminar(self, movimiento_id: uuid.UUID) -> None:
+        self._session.execute(delete(TablaMovimientoDinero).where(TablaMovimientoDinero.id == movimiento_id))
+
+    def entre(self, desde: date, hasta: date) -> list[MovimientoDinero]:
+        consulta = (
+            select(TablaMovimientoDinero)
+            .where(TablaMovimientoDinero.fecha >= desde, TablaMovimientoDinero.fecha <= hasta)
+            .order_by(TablaMovimientoDinero.fecha.desc(), TablaMovimientoDinero.id)
+        )
+        return [_movimiento_dinero(f) for f in self._session.scalars(consulta)]
+
+
 class UnidadDeTrabajoSql:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -665,6 +755,8 @@ class UnidadDeTrabajoSql:
         self.plan = PlanSql(session)
         self.cumplimientos = CumplimientosSql(session)
         self.pesajes = PesajesSql(session)
+        self.categorias = CategoriasSql(session)
+        self.dinero = DineroSql(session)
 
     def confirmar(self) -> None:
         self._session.commit()

@@ -1,6 +1,7 @@
 from dataclasses import replace
 from datetime import date
 
+from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero
 from app.dominio.modelos import (
     Bodega,
     Etapa,
@@ -304,6 +305,42 @@ class PesajesEnMemoria:
         self.filas.pop(pesaje_id, None)
 
 
+class CategoriasEnMemoria(_Tabla):
+    def agregar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
+        return self._insertar(categoria)
+
+    def por_nombre(self, nombre: str) -> CategoriaHuevo | None:
+        return next((replace(c) for c in self.filas.values() if c.nombre == nombre), None)
+
+    def listar(self) -> list[CategoriaHuevo]:
+        return sorted((replace(c) for c in self.filas.values()), key=lambda c: c.id)
+
+    def actualizar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
+        self.filas[categoria.id] = replace(categoria)
+        return replace(categoria)
+
+
+class DineroEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict = {}
+
+    def guardar(self, movimiento: MovimientoDinero) -> MovimientoDinero:
+        self.filas[movimiento.id] = replace(movimiento)
+        return replace(movimiento)
+
+    def obtener(self, movimiento_id):
+        fila = self.filas.get(movimiento_id)
+        return replace(fila) if fila else None
+
+    def eliminar(self, movimiento_id) -> None:
+        self.filas.pop(movimiento_id, None)
+
+    def entre(self, desde: date, hasta: date) -> list[MovimientoDinero]:
+        return sorted(
+            (replace(m) for m in self.filas.values() if desde <= m.fecha <= hasta), key=lambda m: m.fecha, reverse=True
+        )
+
+
 class UnidadEnMemoria:
     def __init__(self) -> None:
         self.galpones = GalponesEnMemoria()
@@ -322,6 +359,8 @@ class UnidadEnMemoria:
         self.plan = PlanEnMemoria()
         self.cumplimientos = CumplimientosEnMemoria()
         self.pesajes = PesajesEnMemoria()
+        self.categorias = CategoriasEnMemoria()
+        self.dinero = DineroEnMemoria()
         self.confirmaciones = 0
 
     def confirmar(self) -> None:

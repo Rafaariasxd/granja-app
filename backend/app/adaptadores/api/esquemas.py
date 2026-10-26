@@ -3,6 +3,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.dominio.finanzas import Rubro, TipoMovimiento
 from app.dominio.modelos import Etapa, Motivo, Rol, TipoBodega, TipoInsumo
 from app.dominio.sanidad import EstadoTarea, Nivel, NivelPeso, TipoAlerta, TipoTarea
 
@@ -360,3 +361,72 @@ class PanoramaOut(BaseModel):
     fecha: date
     alertas: list[AlertaOut]
     galpones: list[SanidadGalponOut]
+
+
+class CategoriaHuevoIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=50)
+
+
+class CategoriaHuevoCambio(BaseModel):
+    nombre: str | None = Field(default=None, min_length=1, max_length=50)
+    activa: bool | None = None
+
+
+class CategoriaHuevoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    nombre: str
+    activa: bool
+
+
+class MovimientoDineroIn(BaseModel):
+    fecha: date
+    rubro: Rubro
+    valor: float = Field(gt=0)
+    descripcion: str = Field(default="", max_length=300)
+    lote_id: int | None = None
+    categoria_id: int | None = None
+    cantidad_huevos: int | None = Field(default=None, gt=0)
+    contraparte: str = Field(default="", max_length=100)
+
+
+class MovimientoDineroOut(MovimientoDineroIn):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    tipo: TipoMovimiento
+
+
+class TotalRubroOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    rubro: Rubro
+    total: float
+
+
+class VentaPorCategoriaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    categoria_id: int | None
+    categoria: str
+    huevos: int
+    valor: float
+    precio_por_huevo: float | None
+
+
+class ResultadoLoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    lote_id: int | None
+    galpon: str
+    ingresos: float
+    egresos: float
+    utilidad: float
+
+
+class ResumenFinanzasOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    desde: date
+    hasta: date
+    ingresos: float
+    egresos: float
+    utilidad: float
+    por_rubro: list[TotalRubroOut]
+    huevos: list[VentaPorCategoriaOut]
+    por_lote: list[ResultadoLoteOut]
