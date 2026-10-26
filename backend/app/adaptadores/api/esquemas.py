@@ -4,6 +4,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.dominio.finanzas import Rubro, TipoMovimiento
+from app.dominio.huevos import EstadoSalida, MotivoHuevo, TipoVenta, a_huevos
 from app.dominio.modelos import Etapa, Motivo, Rol, TipoBodega, TipoInsumo
 from app.dominio.sanidad import EstadoTarea, Nivel, NivelPeso, TipoAlerta, TipoTarea
 
@@ -430,3 +431,96 @@ class ResumenFinanzasOut(BaseModel):
     por_rubro: list[TotalRubroOut]
     huevos: list[VentaPorCategoriaOut]
     por_lote: list[ResultadoLoteOut]
+
+
+class CantidadHuevoIn(BaseModel):
+    categoria_id: int
+    cajas: int = Field(default=0, ge=0)
+    cartones: int = Field(default=0, ge=0)
+    huevos: int = Field(default=0, ge=0)
+
+    @property
+    def total(self) -> int:
+        return a_huevos(self.cajas, self.cartones, self.huevos)
+
+
+class MovimientoBodegaHuevoIn(CantidadHuevoIn):
+    operacion_id: uuid.UUID
+    fecha: date | None = None
+    nota: str = Field(default="", max_length=200)
+
+
+class ConteoHuevoIn(CantidadHuevoIn):
+    fecha: date | None = None
+    nota: str = Field(default="", max_length=200)
+
+
+class MovimientoHuevoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    fecha: date
+    categoria_id: int
+    huevos: int
+    motivo: MotivoHuevo
+    nota: str
+
+
+class PrecioHuevoIo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    categoria_id: int
+    precio_caja: float | None = Field(default=None, gt=0)
+    precio_carton: float | None = Field(default=None, gt=0)
+    precio_mayorista: float | None = Field(default=None, gt=0)
+
+
+class LineaSalidaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    categoria_id: int
+    huevos_sacados: int
+    huevos_vendidos: int | None
+    valor: float | None
+
+
+class SalidaHuevoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    fecha: date
+    tipo_venta: TipoVenta
+    cliente: str
+    estado: EstadoSalida
+    cerrada_el: date | None
+    valor_total: float | None
+    lineas: list[LineaSalidaOut]
+
+
+class SalidaHuevoIn(BaseModel):
+    fecha: date | None = None
+    tipo_venta: TipoVenta
+    cliente: str = Field(default="", max_length=100)
+    lineas: list[CantidadHuevoIn] = Field(min_length=1)
+
+
+class VentaHuevoIn(SalidaHuevoIn):
+    valor_cobrado: float | None = Field(default=None, gt=0)
+
+
+class CierreSalidaIn(BaseModel):
+    fecha: date | None = None
+    vendidos: list[CantidadHuevoIn] | None = None
+    valor_cobrado: float | None = Field(default=None, gt=0)
+
+
+class ExistenciaHuevoOut(BaseModel):
+    categoria_id: int
+    categoria: str
+    activa: bool
+    huevos: int
+    cajas: int
+    cartones: int
+    sueltos: int
+
+
+class BodegaHuevoOut(BaseModel):
+    existencias: list[ExistenciaHuevoOut]
+    precios: list[PrecioHuevoIo]
+    abiertas: list[SalidaHuevoOut]

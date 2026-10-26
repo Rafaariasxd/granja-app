@@ -3,6 +3,7 @@ from datetime import date
 from typing import Protocol
 
 from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero
+from app.dominio.huevos import EstadoSalida, MovimientoHuevo, PrecioHuevo, SalidaHuevo
 from app.dominio.modelos import (
     Bodega,
     Etapa,
@@ -155,6 +156,25 @@ class RepoDinero(Protocol):
     def entre(self, desde: date, hasta: date) -> list[MovimientoDinero]: ...
 
 
+class RepoHuevos(Protocol):
+    def agregar(self, movimiento: MovimientoHuevo) -> MovimientoHuevo: ...
+    def de_operacion(self, operacion_id: uuid.UUID) -> list[MovimientoHuevo]: ...
+    def stocks(self) -> dict[int, int]:
+        """Huevos por categoría."""
+        ...
+
+
+class RepoPreciosHuevo(Protocol):
+    def guardar(self, precio: PrecioHuevo) -> PrecioHuevo: ...
+    def todos(self) -> list[PrecioHuevo]: ...
+
+
+class RepoSalidas(Protocol):
+    def guardar(self, salida: SalidaHuevo) -> SalidaHuevo: ...
+    def obtener(self, salida_id: uuid.UUID) -> SalidaHuevo | None: ...
+    def listar(self, estado: EstadoSalida | None = None) -> list[SalidaHuevo]: ...
+
+
 class UnidadDeTrabajo(Protocol):
     galpones: RepoGalpones
     lineas: RepoLineas
@@ -174,5 +194,8 @@ class UnidadDeTrabajo(Protocol):
     pesajes: RepoPesajes
     categorias: RepoCategorias
     dinero: RepoDinero
+    huevos: RepoHuevos
+    precios_huevo: RepoPreciosHuevo
+    salidas: RepoSalidas
 
     def confirmar(self) -> None: ...

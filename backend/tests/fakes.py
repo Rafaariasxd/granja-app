@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import date
 
 from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero
+from app.dominio.huevos import EstadoSalida, MovimientoHuevo, PrecioHuevo, SalidaHuevo
 from app.dominio.modelos import (
     Bodega,
     Etapa,
@@ -341,6 +342,48 @@ class DineroEnMemoria:
         )
 
 
+class HuevosEnMemoria(_Tabla):
+    def agregar(self, movimiento: MovimientoHuevo) -> MovimientoHuevo:
+        return self._insertar(movimiento)
+
+    def de_operacion(self, operacion_id) -> list[MovimientoHuevo]:
+        return [replace(m) for m in self.filas.values() if m.operacion_id == operacion_id]
+
+    def stocks(self) -> dict[int, int]:
+        totales: dict[int, int] = {}
+        for m in self.filas.values():
+            totales[m.categoria_id] = totales.get(m.categoria_id, 0) + m.huevos
+        return totales
+
+
+class PreciosHuevoEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict[int, PrecioHuevo] = {}
+
+    def guardar(self, precio: PrecioHuevo) -> PrecioHuevo:
+        self.filas[precio.categoria_id] = replace(precio)
+        return replace(precio)
+
+    def todos(self) -> list[PrecioHuevo]:
+        return [replace(p) for _, p in sorted(self.filas.items())]
+
+
+class SalidasEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict = {}
+
+    def guardar(self, salida: SalidaHuevo) -> SalidaHuevo:
+        self.filas[salida.id] = replace(salida, lineas=[replace(ln) for ln in salida.lineas])
+        return salida
+
+    def obtener(self, salida_id):
+        fila = self.filas.get(salida_id)
+        return replace(fila, lineas=[replace(ln) for ln in fila.lineas]) if fila else None
+
+    def listar(self, estado: EstadoSalida | None = None) -> list[SalidaHuevo]:
+        return [self.obtener(i) for i, s in self.filas.items() if estado is None or s.estado == estado]
+
+
 class UnidadEnMemoria:
     def __init__(self) -> None:
         self.galpones = GalponesEnMemoria()
@@ -361,6 +404,9 @@ class UnidadEnMemoria:
         self.pesajes = PesajesEnMemoria()
         self.categorias = CategoriasEnMemoria()
         self.dinero = DineroEnMemoria()
+        self.huevos = HuevosEnMemoria()
+        self.precios_huevo = PreciosHuevoEnMemoria()
+        self.salidas = SalidasEnMemoria()
         self.confirmaciones = 0
 
     def confirmar(self) -> None:

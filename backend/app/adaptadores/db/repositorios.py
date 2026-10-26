@@ -16,16 +16,29 @@ from app.adaptadores.db.tablas import (
     TablaIngrediente,
     TablaInsumo,
     TablaLinea,
+    TablaLineaSalida,
     TablaLote,
     TablaMovimiento,
     TablaMovimientoDinero,
+    TablaMovimientoHuevo,
     TablaPesaje,
     TablaPlan,
+    TablaPrecioHuevo,
     TablaRegistro,
+    TablaSalidaHuevo,
     TablaSesion,
     TablaUsuario,
 )
 from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero, Rubro
+from app.dominio.huevos import (
+    EstadoSalida,
+    LineaSalida,
+    MotivoHuevo,
+    MovimientoHuevo,
+    PrecioHuevo,
+    SalidaHuevo,
+    TipoVenta,
+)
 from app.dominio.modelos import (
     Bodega,
     Etapa,
@@ -736,6 +749,134 @@ class DineroSql:
         return [_movimiento_dinero(f) for f in self._session.scalars(consulta)]
 
 
+def _movimiento_huevo(fila: TablaMovimientoHuevo) -> MovimientoHuevo:
+    return MovimientoHuevo(
+        id=fila.id,
+        fecha=fila.fecha,
+        categoria_id=fila.categoria_id,
+        huevos=fila.huevos,
+        motivo=MotivoHuevo(fila.motivo),
+        usuario_id=fila.usuario_id,
+        nota=fila.nota,
+        salida_id=fila.salida_id,
+        operacion_id=fila.operacion_id,
+    )
+
+
+class HuevosSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def agregar(self, movimiento: MovimientoHuevo) -> MovimientoHuevo:
+        fila = TablaMovimientoHuevo(
+            fecha=movimiento.fecha,
+            categoria_id=movimiento.categoria_id,
+            huevos=movimiento.huevos,
+            motivo=movimiento.motivo.value,
+            usuario_id=movimiento.usuario_id,
+            nota=movimiento.nota,
+            salida_id=movimiento.salida_id,
+            operacion_id=movimiento.operacion_id,
+        )
+        self._session.add(fila)
+        self._session.flush()
+        return _movimiento_huevo(fila)
+
+    def de_operacion(self, operacion_id: uuid.UUID) -> list[MovimientoHuevo]:
+        consulta = (
+            select(TablaMovimientoHuevo)
+            .where(TablaMovimientoHuevo.operacion_id == operacion_id)
+            .order_by(TablaMovimientoHuevo.id)
+        )
+        return [_movimiento_huevo(f) for f in self._session.scalars(consulta)]
+
+    def stocks(self) -> dict[int, int]:
+        consulta = select(TablaMovimientoHuevo.categoria_id, func.sum(TablaMovimientoHuevo.huevos)).group_by(
+            TablaMovimientoHuevo.categoria_id
+        )
+        return {categoria: int(total) for categoria, total in self._session.execute(consulta)}
+
+
+class PreciosHuevoSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, precio: PrecioHuevo) -> PrecioHuevo:
+        fila = self._session.get(TablaPrecioHuevo, precio.categoria_id)
+        if fila is None:
+            fila = TablaPrecioHuevo(categoria_id=precio.categoria_id)
+            self._session.add(fila)
+        fila.precio_caja = precio.precio_caja
+        fila.precio_carton = precio.precio_carton
+        fila.precio_mayorista = precio.precio_mayorista
+        self._session.flush()
+        return precio
+
+    def todos(self) -> list[PrecioHuevo]:
+        filas = self._session.scalars(select(TablaPrecioHuevo).order_by(TablaPrecioHuevo.categoria_id))
+        return [PrecioHuevo(f.categoria_id, f.precio_caja, f.precio_carton, f.precio_mayorista) for f in filas]
+
+
+def _salida(fila: TablaSalidaHuevo, lineas: list[TablaLineaSalida]) -> SalidaHuevo:
+    return SalidaHuevo(
+        id=fila.id,
+        fecha=fila.fecha,
+        tipo_venta=TipoVenta(fila.tipo_venta),
+        cliente=fila.cliente,
+        estado=EstadoSalida(fila.estado),
+        usuario_id=fila.usuario_id,
+        cerrada_el=fila.cerrada_el,
+        valor_total=fila.valor_total,
+        lineas=[LineaSalida(ln.categoria_id, ln.huevos_sacados, ln.huevos_vendidos, ln.valor) for ln in lineas],
+    )
+
+
+class SalidasSql:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def guardar(self, salida: SalidaHuevo) -> SalidaHuevo:
+        fila = self._session.get(TablaSalidaHuevo, salida.id)
+        if fila is None:
+            fila = TablaSalidaHuevo(id=salida.id)
+            self._session.add(fila)
+        fila.fecha = salida.fecha
+        fila.tipo_venta = salida.tipo_venta.value
+        fila.cliente = salida.cliente
+        fila.estado = salida.estado.value
+        fila.usuario_id = salida.usuario_id
+        fila.cerrada_el = salida.cerrada_el
+        fila.valor_total = salida.valor_total
+        self._session.flush()
+        self._session.execute(delete(TablaLineaSalida).where(TablaLineaSalida.salida_id == salida.id))
+        for linea in salida.lineas:
+            self._session.add(
+                TablaLineaSalida(
+                    salida_id=salida.id,
+                    categoria_id=linea.categoria_id,
+                    huevos_sacados=linea.huevos_sacados,
+                    huevos_vendidos=linea.huevos_vendidos,
+                    valor=linea.valor,
+                )
+            )
+        self._session.flush()
+        return salida
+
+    def _lineas(self, salida_id: uuid.UUID) -> list[TablaLineaSalida]:
+        consulta = select(TablaLineaSalida).where(TablaLineaSalida.salida_id == salida_id).order_by(TablaLineaSalida.id)
+        return list(self._session.scalars(consulta))
+
+    def obtener(self, salida_id: uuid.UUID) -> SalidaHuevo | None:
+        fila = self._session.get(TablaSalidaHuevo, salida_id)
+        return _salida(fila, self._lineas(salida_id)) if fila else None
+
+    def listar(self, estado: EstadoSalida | None = None) -> list[SalidaHuevo]:
+        consulta = select(TablaSalidaHuevo).order_by(TablaSalidaHuevo.fecha.desc(), TablaSalidaHuevo.id)
+        if estado is not None:
+            consulta = consulta.where(TablaSalidaHuevo.estado == estado.value)
+        return [_salida(f, self._lineas(f.id)) for f in self._session.scalars(consulta)]
+
+
 class UnidadDeTrabajoSql:
     def __init__(self, session: Session) -> None:
         self._session = session
@@ -757,6 +898,9 @@ class UnidadDeTrabajoSql:
         self.pesajes = PesajesSql(session)
         self.categorias = CategoriasSql(session)
         self.dinero = DineroSql(session)
+        self.huevos = HuevosSql(session)
+        self.precios_huevo = PreciosHuevoSql(session)
+        self.salidas = SalidasSql(session)
 
     def confirmar(self) -> None:
         self._session.commit()

@@ -231,3 +231,54 @@ class TablaMovimientoDinero(Base):
     cantidad_huevos: Mapped[int | None]
     contraparte: Mapped[str] = mapped_column(String(100), default="")
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+
+
+class TablaPrecioHuevo(Base):
+    __tablename__ = "precios_huevo"
+
+    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias_huevo.id"), primary_key=True)
+    precio_caja: Mapped[float | None]
+    precio_carton: Mapped[float | None]
+    precio_mayorista: Mapped[float | None]
+
+
+class TablaSalidaHuevo(Base):
+    __tablename__ = "salidas_huevo"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    fecha: Mapped[date]
+    tipo_venta: Mapped[str] = mapped_column(String(20))
+    cliente: Mapped[str] = mapped_column(String(100), default="")
+    estado: Mapped[str] = mapped_column(String(20), index=True)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    cerrada_el: Mapped[date | None]
+    valor_total: Mapped[float | None]
+
+
+class TablaLineaSalida(Base):
+    __tablename__ = "lineas_salida_huevo"
+    __table_args__ = (
+        UniqueConstraint("salida_id", "categoria_id"),
+        CheckConstraint("huevos_sacados > 0", name="huevos_sacados"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    salida_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("salidas_huevo.id"))
+    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias_huevo.id"))
+    huevos_sacados: Mapped[int]
+    huevos_vendidos: Mapped[int | None]
+    valor: Mapped[float | None]
+
+
+class TablaMovimientoHuevo(Base):
+    __tablename__ = "movimientos_huevo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fecha: Mapped[date]
+    categoria_id: Mapped[int] = mapped_column(ForeignKey("categorias_huevo.id"), index=True)
+    huevos: Mapped[int]
+    motivo: Mapped[str] = mapped_column(String(20))
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    nota: Mapped[str] = mapped_column(Text, default="")
+    salida_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("salidas_huevo.id"))
+    operacion_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
