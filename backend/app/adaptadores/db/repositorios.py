@@ -663,7 +663,7 @@ class PesajesSql:
 
 
 def _categoria(fila: TablaCategoriaHuevo) -> CategoriaHuevo:
-    return CategoriaHuevo(id=fila.id, nombre=fila.nombre, activa=fila.activa)
+    return CategoriaHuevo(id=fila.id, nombre=fila.nombre, activa=fila.activa, orden=fila.orden)
 
 
 class CategoriasSql:
@@ -671,7 +671,7 @@ class CategoriasSql:
         self._session = session
 
     def agregar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
-        fila = TablaCategoriaHuevo(nombre=categoria.nombre, activa=categoria.activa)
+        fila = TablaCategoriaHuevo(nombre=categoria.nombre, activa=categoria.activa, orden=categoria.orden)
         self._session.add(fila)
         self._session.flush()
         return _categoria(fila)
@@ -686,13 +686,17 @@ class CategoriasSql:
 
     def listar(self) -> list[CategoriaHuevo]:
         return [
-            _categoria(f) for f in self._session.scalars(select(TablaCategoriaHuevo).order_by(TablaCategoriaHuevo.id))
+            _categoria(f)
+            for f in self._session.scalars(
+                select(TablaCategoriaHuevo).order_by(TablaCategoriaHuevo.orden, TablaCategoriaHuevo.id)
+            )
         ]
 
     def actualizar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
         fila = self._session.get_one(TablaCategoriaHuevo, categoria.id)
         fila.nombre = categoria.nombre
         fila.activa = categoria.activa
+        fila.orden = categoria.orden
         self._session.flush()
         return _categoria(fila)
 

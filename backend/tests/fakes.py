@@ -314,7 +314,7 @@ class CategoriasEnMemoria(_Tabla):
         return next((replace(c) for c in self.filas.values() if c.nombre == nombre), None)
 
     def listar(self) -> list[CategoriaHuevo]:
-        return sorted((replace(c) for c in self.filas.values()), key=lambda c: c.id)
+        return sorted((replace(c) for c in self.filas.values()), key=lambda c: (c.orden, c.id))
 
     def actualizar(self, categoria: CategoriaHuevo) -> CategoriaHuevo:
         self.filas[categoria.id] = replace(categoria)

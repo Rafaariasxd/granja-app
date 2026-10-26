@@ -373,6 +373,7 @@ class CategoriaHuevoIn(BaseModel):
 class CategoriaHuevoCambio(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=50)
     activa: bool | None = None
+    orden: int | None = Field(default=None, ge=0)
 
 
 class CategoriaHuevoOut(BaseModel):
@@ -380,6 +381,7 @@ class CategoriaHuevoOut(BaseModel):
     id: int
     nombre: str
     activa: bool
+    orden: int
 
 
 class MovimientoDineroIn(BaseModel):

@@ -7,7 +7,7 @@ from app.dominio.errores import Conflicto, DatosInvalidos, NoEncontrado
 from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero, ResumenFinanzas
 from app.dominio.modelos import Evento, Usuario
 
-CATEGORIAS_INICIALES = ("AA", "A", "B", "C", "Roto")
+CATEGORIAS_INICIALES = ("Jumbo", "Extra", "AA", "A", "B", "C", "Roto")
 
 
 def listar_categorias(uow: UnidadDeTrabajo) -> list[CategoriaHuevo]:
@@ -17,13 +17,14 @@ def listar_categorias(uow: UnidadDeTrabajo) -> list[CategoriaHuevo]:
 def crear_categoria(uow: UnidadDeTrabajo, nombre: str) -> CategoriaHuevo:
     if uow.categorias.por_nombre(nombre):
         raise Conflicto(f"ya existe la categoría {nombre}")
-    categoria = uow.categorias.agregar(CategoriaHuevo(nombre=nombre))
+    orden = max((c.orden for c in uow.categorias.listar()), default=0) + 1
+    categoria = uow.categorias.agregar(CategoriaHuevo(nombre=nombre, orden=orden))
     uow.confirmar()
     return categoria
 
 
 def cambiar_categoria(
-    uow: UnidadDeTrabajo, categoria_id: int, nombre: str | None, activa: bool | None
+    uow: UnidadDeTrabajo, categoria_id: int, nombre: str | None, activa: bool | None, orden: int | None = None
 ) -> CategoriaHuevo:
     categoria = uow.categorias.obtener(categoria_id)
     if categoria is None:
@@ -35,6 +36,8 @@ def cambiar_categoria(
         categoria.nombre = nombre
     if activa is not None:
         categoria.activa = activa
+    if orden is not None:
+        categoria.orden = orden
     guardada = uow.categorias.actualizar(categoria)
     uow.confirmar()
     return guardada

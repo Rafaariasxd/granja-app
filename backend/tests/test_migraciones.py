@@ -55,3 +55,13 @@ def test_la_migracion_se_puede_deshacer(tmp_path):
     tablas = set(inspect(engine).get_table_names())
     engine.dispose()
     assert tablas <= {"alembic_version"}
+
+
+def test_la_migracion_trae_los_tamanos_de_huevo_de_mayor_a_menor(tmp_path):
+    url = _url(tmp_path)
+    command.upgrade(_config(url), "head")
+    engine = create_engine(url)
+    with engine.connect() as conexion:
+        nombres = [f[0] for f in conexion.exec_driver_sql("SELECT nombre FROM categorias_huevo ORDER BY orden")]
+    engine.dispose()
+    assert nombres == ["Jumbo", "Extra", "AA", "A", "B", "C", "Roto"]

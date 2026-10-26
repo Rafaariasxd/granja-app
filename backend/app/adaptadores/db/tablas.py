@@ -212,6 +212,7 @@ class TablaCategoriaHuevo(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(50), unique=True)
     activa: Mapped[bool] = mapped_column(default=True)
+    orden: Mapped[int] = mapped_column(default=0, server_default="0")
 
 
 class TablaMovimientoDinero(Base):

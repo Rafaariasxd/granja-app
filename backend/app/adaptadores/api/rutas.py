@@ -348,7 +348,7 @@ def crear_categoria(datos: esquemas.CategoriaHuevoIn, uow: UnidadDep):
     dependencies=[Depends(administrador)],
 )
 def cambiar_categoria(categoria_id: int, datos: esquemas.CategoriaHuevoCambio, uow: UnidadDep):
-    return finanzas.cambiar_categoria(uow, categoria_id, datos.nombre, datos.activa)
+    return finanzas.cambiar_categoria(uow, categoria_id, datos.nombre, datos.activa, datos.orden)
 
 
 @protegido.get("/finanzas", response_model=list[esquemas.MovimientoDineroOut])
