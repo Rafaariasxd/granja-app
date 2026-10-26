@@ -4,6 +4,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.dominio.modelos import Etapa, Motivo, Rol, TipoBodega, TipoInsumo
+from app.dominio.sanidad import EstadoTarea, Nivel, NivelPeso, TipoAlerta, TipoTarea
 
 
 class GalponIn(BaseModel):
@@ -19,11 +20,18 @@ class GalponOut(GalponIn):
 
 class LineaIn(BaseModel):
     nombre: str = Field(min_length=1, max_length=50)
+    plantilla: str | None = None
 
 
-class LineaOut(LineaIn):
+class LineaNombreIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=50)
+
+
+class LineaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    nombre: str
+    revisada: bool
 
 
 class LoteIn(BaseModel):
@@ -152,7 +160,17 @@ class CompraIn(BaseModel):
 class AjusteIn(BaseModel):
     bodega_id: int
     fecha: date | None = None
-    kg_reales: float = Field(ge=0)
+    bultos_reales: float | None = Field(default=None, ge=0)
+    kg_reales: float | None = Field(default=None, ge=0)
+    nota: str = Field(default="", max_length=200)
+
+
+class GastoIn(BaseModel):
+    bodega_id: int
+    operacion_id: uuid.UUID | None = None
+    fecha: date | None = None
+    bultos: float | None = Field(default=None, gt=0)
+    kg: float | None = Field(default=None, gt=0)
     nota: str = Field(default="", max_length=200)
 
 
@@ -230,3 +248,115 @@ class MezclaPosibleOut(BaseModel):
 class InventarioOut(BaseModel):
     bodegas: list[InventarioBodegaOut]
     mezclas: list[MezclaPosibleOut]
+
+
+class TareaPlanIn(BaseModel):
+    id: int | None = None
+    nombre: str = Field(min_length=1, max_length=80)
+    tipo: TipoTarea
+    semana_ideal: int = Field(ge=0, le=120)
+    semana_max: int = Field(ge=0, le=120)
+    nota: str = Field(default="", max_length=300)
+
+
+class TareaPlanOut(TareaPlanIn):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+
+
+class PuntoCurvaIO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    semana: int = Field(ge=0, le=120)
+    postura_pct: float = Field(ge=0, le=100)
+    peso_g: float | None = Field(default=None, gt=0)
+
+
+class CumplimientoIn(BaseModel):
+    tarea_id: int
+    fecha: date
+    nota: str = Field(default="", max_length=300)
+
+
+class CumplimientoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    lote_id: int
+    tarea_id: int
+    fecha: date
+    nota: str
+
+
+class PesajeIn(BaseModel):
+    fecha: date
+    peso_g: float = Field(gt=0)
+    aves_pesadas: int = Field(gt=0)
+
+
+class PesajeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    lote_id: int
+    fecha: date
+    peso_g: float
+    aves_pesadas: int
+
+
+class TareaDelLoteOut(BaseModel):
+    tarea_id: int
+    nombre: str
+    tipo: TipoTarea
+    semana_ideal: int
+    semana_max: int
+    nota_plan: str
+    estado: EstadoTarea
+    aplicada_en: date | None
+    nota: str
+    cumplimiento_id: uuid.UUID | None
+
+
+class ComparacionPesoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    fecha: date
+    peso_g: float
+    estandar_g: float
+    diferencia_pct: float
+    nivel: NivelPeso
+
+
+class ComparacionPosturaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    fecha: date
+    real_pct: float
+    estandar_pct: float
+
+
+class AlertaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    galpon_id: int
+    galpon: str
+    lote_id: int
+    tipo: TipoAlerta
+    nivel: Nivel
+    titulo: str
+    detalle: str
+    recomendaciones: list[str]
+
+
+class SanidadGalponOut(BaseModel):
+    galpon_id: int
+    galpon: str
+    lote_id: int
+    linea: str
+    edad_semanas: int
+    etapa: Etapa
+    aves_vivas: int
+    tareas: list[TareaDelLoteOut]
+    pesajes: list[PesajeOut]
+    peso: ComparacionPesoOut | None
+    postura: ComparacionPosturaOut | None
+
+
+class PanoramaOut(BaseModel):
+    fecha: date
+    alertas: list[AlertaOut]
+    galpones: list[SanidadGalponOut]

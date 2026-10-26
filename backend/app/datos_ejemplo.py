@@ -3,10 +3,12 @@ from datetime import UTC, date, datetime, timedelta
 
 from app.adaptadores.db.conexion import SessionLocal
 from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
-from app.casos_uso import galpones, inventario, lineas, lotes, registros
+from app.casos_uso import galpones, inventario, lineas, lotes, registros, sanidad
 from app.casos_uso.puertos import UnidadDeTrabajo
+from app.dominio import produccion
 from app.dominio.fechas import ahora_utc, fecha_en_granja
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Rol, TipoBodega, TipoInsumo, Usuario
+from app.dominio.sanidad import punto_en
 
 CAPACIDADES = {
     "Galpón 1": 6000,
@@ -38,16 +40,17 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
     if uow.galpones.listar():
         raise SystemExit("La base ya tiene galpones: no se cargan datos de ejemplo.")
     ids = {nombre: galpones.crear_galpon(uow, nombre, capacidad).id for nombre, capacidad in CAPACIDADES.items()}
-    hy_line = lineas.crear_linea(uow, "Hy-Line Brown").id
-    lohmann = lineas.crear_linea(uow, "Lohmann Brown").id
+    hy_line = lineas.crear_linea(uow, "Hy-Line Brown", "Hy-Line Brown").id
+    lohmann = lineas.crear_linea(uow, "Lohmann Brown", "Lohmann Brown").id
 
+    creados = {}
     for nombre, linea, semanas, aves in [
         ("Galpón 1", hy_line, 32, 2500),
         ("Galpón 3", lohmann, 45, 1650),
         ("Galpón 5", hy_line, 12, 960),
     ]:
         nacimiento = hoy - timedelta(weeks=semanas)
-        lotes.crear_lote(
+        creados[nombre] = lotes.crear_lote(
             uow,
             Lote(
                 galpon_id=ids[nombre],
@@ -59,6 +62,7 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
         )
 
     administrador = next((u for u in uow.usuarios.listar() if u.rol == Rol.ADMINISTRADOR), None)
+    _cargar_sanidad(uow, administrador or Usuario("ejemplo", Rol.ADMINISTRADOR, ""), creados, hoy)
     if administrador is not None:
         _cargar_inventario(uow, administrador, hoy - timedelta(days=7), ids)
 
@@ -74,6 +78,25 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
             _registrar(uow, ids[nombre], fecha, round(vivas[nombre] * postura / 100), muertas, vivas[nombre] * 0.11)
         vivas["Galpón 5"] -= 1
         _registrar(uow, ids["Galpón 5"], fecha, 0, 1, vivas["Galpón 5"] * 0.045)
+
+
+PENDIENTES = {"Galpón 1": {"Newcastle (refuerzo en postura)"}}
+PESO_EJEMPLO = {"Galpón 5": 0.93}
+
+
+def _cargar_sanidad(uow: UnidadDeTrabajo, quien: Usuario, creados: dict, hoy: date) -> None:
+    for nombre, lote in creados.items():
+        edad = produccion.edad_semanas(lote.fecha_nacimiento, hoy)
+        for tarea in uow.plan.de(lote.linea_id):
+            if tarea.semana_max < edad - 1 and tarea.nombre not in PENDIENTES.get(nombre, set()):
+                dia = lote.fecha_nacimiento + timedelta(weeks=tarea.semana_ideal)
+                sanidad.marcar_aplicada(uow, quien, lote.id, tarea.id, uuid.uuid4(), dia, "")
+        if nombre in PESO_EJEMPLO:
+            curva = uow.curvas.de(lote.linea_id)
+            esperado = punto_en(curva, produccion.edad_semanas(lote.fecha_nacimiento, hoy - timedelta(days=2))).peso_g
+            sanidad.registrar_pesaje(
+                uow, lote.id, uuid.uuid4(), hoy - timedelta(days=2), round(esperado * PESO_EJEMPLO[nombre]), 40
+            )
 
 
 def _cargar_inventario(uow: UnidadDeTrabajo, quien: Usuario, fecha: date, galpones_: dict[str, int]) -> None:

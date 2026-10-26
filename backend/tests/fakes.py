@@ -15,6 +15,7 @@ from app.dominio.modelos import (
     Sesion,
     Usuario,
 )
+from app.dominio.sanidad import Cumplimiento, Pesaje, PuntoCurva, TareaPlan
 
 
 class _Tabla:
@@ -51,6 +52,10 @@ class LineasEnMemoria(_Tabla):
 
     def listar(self) -> list[LineaGenetica]:
         return sorted((replace(x) for x in self.filas.values()), key=lambda x: x.nombre)
+
+    def actualizar(self, linea: LineaGenetica) -> LineaGenetica:
+        self.filas[linea.id] = replace(linea)
+        return replace(linea)
 
 
 class LotesEnMemoria(_Tabla):
@@ -231,6 +236,74 @@ class BodegasEnMemoria(_Tabla):
         return self.asignaciones.get(galpon_id)
 
 
+class CurvasEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict[int, list[PuntoCurva]] = {}
+
+    def guardar(self, linea_id: int, puntos: list[PuntoCurva]) -> None:
+        self.filas[linea_id] = sorted(puntos, key=lambda p: p.semana)
+
+    def de(self, linea_id: int) -> list[PuntoCurva]:
+        return list(self.filas.get(linea_id, []))
+
+
+class PlanEnMemoria(_Tabla):
+    def guardar(self, linea_id: int, tareas: list[TareaPlan]) -> list[TareaPlan]:
+        conservadas = {t.id for t in tareas if t.id is not None}
+        for id_, fila in self.filas.items():
+            if fila.linea_id == linea_id and id_ not in conservadas:
+                fila.activa = False
+        guardadas = []
+        for t in tareas:
+            if t.id is not None and t.id in self.filas:
+                self.filas[t.id] = replace(t, linea_id=linea_id, activa=True)
+                guardadas.append(replace(self.filas[t.id]))
+            else:
+                guardadas.append(self._insertar(replace(t, id=None, linea_id=linea_id, activa=True)))
+        return guardadas
+
+    def de(self, linea_id: int) -> list[TareaPlan]:
+        return sorted((replace(t) for t in self.filas.values() if t.linea_id == linea_id), key=lambda t: t.id)
+
+
+class CumplimientosEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict = {}
+
+    def guardar(self, cumplimiento: Cumplimiento) -> Cumplimiento:
+        self.filas[cumplimiento.id] = replace(cumplimiento)
+        return replace(cumplimiento)
+
+    def obtener(self, cumplimiento_id):
+        fila = self.filas.get(cumplimiento_id)
+        return replace(fila) if fila else None
+
+    def del_lote(self, lote_id: int) -> list[Cumplimiento]:
+        return [replace(c) for c in self.filas.values() if c.lote_id == lote_id]
+
+    def quitar(self, cumplimiento_id) -> None:
+        self.filas.pop(cumplimiento_id, None)
+
+
+class PesajesEnMemoria:
+    def __init__(self) -> None:
+        self.filas: dict = {}
+
+    def guardar(self, pesaje: Pesaje) -> Pesaje:
+        self.filas[pesaje.id] = replace(pesaje)
+        return replace(pesaje)
+
+    def obtener(self, pesaje_id):
+        fila = self.filas.get(pesaje_id)
+        return replace(fila) if fila else None
+
+    def del_lote(self, lote_id: int) -> list[Pesaje]:
+        return sorted((replace(p) for p in self.filas.values() if p.lote_id == lote_id), key=lambda p: p.fecha)
+
+    def quitar(self, pesaje_id) -> None:
+        self.filas.pop(pesaje_id, None)
+
+
 class UnidadEnMemoria:
     def __init__(self) -> None:
         self.galpones = GalponesEnMemoria()
@@ -245,6 +318,10 @@ class UnidadEnMemoria:
         self.insumos = InsumosEnMemoria(self.movimientos)
         self.formulas = FormulasEnMemoria()
         self.alimento_en_uso = AlimentoEnUsoEnMemoria()
+        self.curvas = CurvasEnMemoria()
+        self.plan = PlanEnMemoria()
+        self.cumplimientos = CumplimientosEnMemoria()
+        self.pesajes = PesajesEnMemoria()
         self.confirmaciones = 0
 
     def confirmar(self) -> None:

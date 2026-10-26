@@ -21,6 +21,7 @@ class Galpon:
 @dataclass
 class LineaGenetica:
     nombre: str
+    revisada: bool = False
     id: int | None = None
 
 
@@ -111,6 +112,7 @@ class Motivo(StrEnum):
     PREPARACION = "preparacion"
     USO_EN_MEZCLA = "uso_en_mezcla"
     CONSUMO = "consumo"
+    GASTO = "gasto"
     AJUSTE = "ajuste"
 
 

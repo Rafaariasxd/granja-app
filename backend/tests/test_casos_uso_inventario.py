@@ -199,7 +199,9 @@ def test_no_se_prepara_sin_formula_ni_con_kilos_en_cero(uow, bodega):
 
 def test_ajustar_stock_deja_el_conteo_real_y_guarda_la_diferencia(uow, bodega):
     _comprar(uow, bodega["maiz"], bodega["materia"], 2)
-    movimiento = inventario.ajustar_stock(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, 85, "conteo del lunes")
+    movimiento = inventario.ajustar_stock(
+        uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, None, 85, "conteo del lunes"
+    )
     assert movimiento.kg == -15
     assert movimiento.motivo == Motivo.AJUSTE
     assert _stock(uow, bodega["materia"], bodega["maiz"]) == 85
@@ -207,10 +209,10 @@ def test_ajustar_stock_deja_el_conteo_real_y_guarda_la_diferencia(uow, bodega):
 
 def test_ajustar_a_lo_mismo_no_crea_movimiento_y_el_conteo_no_es_negativo(uow, bodega):
     _comprar(uow, bodega["maiz"], bodega["materia"], 2)
-    assert inventario.ajustar_stock(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, 100, "") is None
+    assert inventario.ajustar_stock(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, None, 100, "") is None
     assert len(inventario.historial(uow, bodega["maiz"])) == 1
     with pytest.raises(DatosInvalidos):
-        inventario.ajustar_stock(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, -1, "")
+        inventario.ajustar_stock(uow, QUIEN, bodega["maiz"], bodega["materia"], HOY, None, -1, "")
 
 
 def test_un_galpon_come_de_una_sola_bodega(uow, bodega):

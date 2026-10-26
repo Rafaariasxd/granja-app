@@ -125,12 +125,30 @@ def registrar_compra(
     return movimiento
 
 
+def _kilos(insumo: Insumo, bultos: float | None, kg: float | None) -> float:
+    if (bultos is None) == (kg is None):
+        raise DatosInvalidos("indica los bultos o los kilos, solo uno de los dos")
+    if kg is not None:
+        return kg
+    if insumo.kg_por_bulto is None:
+        raise DatosInvalidos(f"{insumo.nombre} no tiene definido cuánto pesa un bulto")
+    return reglas.kg_de_bultos(bultos, insumo.kg_por_bulto)
+
+
 def ajustar_stock(
-    uow: UnidadDeTrabajo, quien: Usuario, insumo_id: int, bodega_id: int, fecha: date, kg_reales: float, nota: str
+    uow: UnidadDeTrabajo,
+    quien: Usuario,
+    insumo_id: int,
+    bodega_id: int,
+    fecha: date,
+    bultos_reales: float | None,
+    kg_reales: float | None,
+    nota: str,
 ) -> MovimientoInsumo | None:
     """Cuando se cuenta lo que hay en una bodega y no coincide con lo que dice la app."""
     insumo = _insumo(uow, insumo_id)
     bodega = _bodega_para(uow, insumo, bodega_id)
+    kg_reales = _kilos(insumo, bultos_reales, kg_reales)
     if kg_reales < 0:
         raise DatosInvalidos("lo que hay en bodega no puede ser negativo")
     actual = uow.insumos.stocks().get((bodega.id, insumo.id), 0.0)
@@ -139,6 +157,37 @@ def ajustar_stock(
         return None
     movimiento = uow.movimientos.agregar(
         MovimientoInsumo(insumo.id, bodega.id, fecha, diferencia, Motivo.AJUSTE, quien.id, nota)
+    )
+    uow.confirmar()
+    return movimiento
+
+
+def registrar_gasto(
+    uow: UnidadDeTrabajo,
+    quien: Usuario,
+    insumo_id: int,
+    bodega_id: int,
+    fecha: date,
+    bultos: float | None,
+    kg: float | None,
+    nota: str,
+    operacion_id: uuid.UUID | None = None,
+) -> MovimientoInsumo:
+    """Lo que se gastó sin pasar por el registro del día, por ejemplo un bulto que se regaló o se dañó."""
+    if operacion_id is not None and (previos := uow.movimientos.de_operacion(operacion_id)):
+        return previos[0]
+    insumo = _insumo(uow, insumo_id)
+    bodega = _bodega_para(uow, insumo, bodega_id)
+    cantidad = _kilos(insumo, bultos, kg)
+    if cantidad <= 0:
+        raise DatosInvalidos("lo gastado debe ser mayor que cero")
+    hay = uow.insumos.stocks().get((bodega.id, insumo.id), 0.0)
+    if cantidad > hay + 1e-6:
+        raise DatosInvalidos(f"no hay tanto {insumo.nombre} en {bodega.nombre}: quedan {round(hay, 1)} kg")
+    movimiento = uow.movimientos.agregar(
+        MovimientoInsumo(
+            insumo.id, bodega.id, fecha, -cantidad, Motivo.GASTO, quien.id, nota, operacion_id=operacion_id
+        )
     )
     uow.confirmar()
     return movimiento
