@@ -177,6 +177,25 @@ class ApiGranja {
     await _enviar(() => _cliente.delete(base.resolve('pesajes/$pesajeId'), headers: _autorizacion()));
   }
 
+  Future<String> lineasJson() => _leerJson('lineas');
+
+  Future<String> plantillasDeLineasJson() => _leerJson('lineas/plantillas');
+
+  Future<String> planDeLineaJson(int lineaId) => _leerJson('lineas/$lineaId/plan');
+
+  Future<String> curvaDeLineaJson(int lineaId) => _leerJson('lineas/$lineaId/curva');
+
+  Future<void> crearLinea(String nombre, String? plantilla) =>
+      _mandar('POST', 'lineas', {'nombre': nombre, 'plantilla': plantilla});
+
+  Future<void> renombrarLinea(int lineaId, String nombre) => _mandar('PATCH', 'lineas/$lineaId', {'nombre': nombre});
+
+  Future<void> definirPlanDeLinea(int lineaId, List<Map<String, Object?>> tareas) =>
+      _mandar('PUT', 'lineas/$lineaId/plan', tareas);
+
+  Future<void> definirCurvaDeLinea(int lineaId, List<Map<String, Object?>> puntos) =>
+      _mandar('PUT', 'lineas/$lineaId/curva', puntos);
+
   Future<String> galponesJson() => _leerJson('galpones');
 
   Future<String> insumosJson() => _leerJson('insumos');

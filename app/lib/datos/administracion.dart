@@ -3,15 +3,24 @@ import 'dart:convert';
 import '../dominio/administracion.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
+import '../dominio/sanidad.dart';
 import 'api_granja.dart';
 import 'json_inventario.dart';
 
 class Catalogo {
-  const Catalogo({required this.inventario, required this.insumos, required this.galpones});
+  const Catalogo({
+    required this.inventario,
+    required this.insumos,
+    required this.galpones,
+    this.razas = const [],
+    this.plantillas = const [],
+  });
 
   final Inventario inventario;
   final List<Insumo> insumos;
   final List<GalponBasico> galpones;
+  final List<Raza> razas;
+  final List<String> plantillas;
 
   Iterable<Insumo> get materiasPrimas => insumos.where((i) => i.tipo == TipoInsumo.materiaPrima);
 
@@ -35,8 +44,64 @@ class RepositorioAdministracion {
       for (final g in jsonDecode(await _api.galponesJson()) as List<dynamic>)
         GalponBasico(id: (g as Map<String, dynamic>)['id'] as int, nombre: g['nombre'] as String),
     ];
-    return Catalogo(inventario: inventario, insumos: insumos, galpones: galpones);
+    final razas = [
+      for (final r in jsonDecode(await _api.lineasJson()) as List<dynamic>)
+        Raza(
+          id: (r as Map<String, dynamic>)['id'] as int,
+          nombre: r['nombre'] as String,
+          revisada: r['revisada'] as bool? ?? false,
+        ),
+    ];
+    final plantillas = [for (final p in jsonDecode(await _api.plantillasDeLineasJson()) as List<dynamic>) p as String];
+    return Catalogo(inventario: inventario, insumos: insumos, galpones: galpones, razas: razas, plantillas: plantillas);
   }
+
+  Future<List<TareaDePlan>> plan(int razaId) async {
+    final datos = jsonDecode(await _api.planDeLineaJson(razaId)) as List<dynamic>;
+    return [
+      for (final d in datos)
+        TareaDePlan(
+          id: (d as Map<String, dynamic>)['id'] as int,
+          nombre: d['nombre'] as String,
+          tipo: TipoTarea.values.byName(d['tipo'] as String),
+          semanaIdeal: d['semana_ideal'] as int,
+          semanaMax: d['semana_max'] as int,
+          nota: d['nota'] as String? ?? '',
+        ),
+    ];
+  }
+
+  Future<List<PuntoDeCurva>> curva(int razaId) async {
+    final datos = jsonDecode(await _api.curvaDeLineaJson(razaId)) as List<dynamic>;
+    return [
+      for (final d in datos)
+        PuntoDeCurva(
+          semana: (d as Map<String, dynamic>)['semana'] as int,
+          posturaPct: (d['postura_pct'] as num).toDouble(),
+          pesoG: (d['peso_g'] as num?)?.toDouble(),
+        ),
+    ];
+  }
+
+  Future<void> crearRaza(String nombre, String? plantilla) => _api.crearLinea(nombre, plantilla);
+
+  Future<void> renombrarRaza(int razaId, String nombre) => _api.renombrarLinea(razaId, nombre);
+
+  Future<void> guardarPlan(int razaId, List<TareaDePlan> tareas) => _api.definirPlanDeLinea(razaId, [
+    for (final t in tareas)
+      {
+        'id': t.id,
+        'nombre': t.nombre,
+        'tipo': t.tipo.name,
+        'semana_ideal': t.semanaIdeal,
+        'semana_max': t.semanaMax,
+        'nota': t.nota,
+      },
+  ]);
+
+  Future<void> guardarCurva(int razaId, List<PuntoDeCurva> puntos) => _api.definirCurvaDeLinea(razaId, [
+    for (final p in puntos) {'semana': p.semana, 'postura_pct': p.posturaPct, 'peso_g': p.pesoG},
+  ]);
 
   Future<List<IngredienteFormula>> formula(int productoId) async {
     final datos = jsonDecode(await _api.formulaJson(productoId)) as List<dynamic>;

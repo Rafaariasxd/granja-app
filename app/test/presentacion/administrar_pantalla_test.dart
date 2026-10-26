@@ -43,6 +43,26 @@ class Montaje {
         '/inventario' => _json(tablero),
         '/insumos' => _json(insumos),
         '/galpones' => _json(galpones),
+        '/lineas' => _json([
+          {'id': 1, 'nombre': 'Hy-Line Brown', 'revisada': false},
+          {'id': 2, 'nombre': 'Lohmann Brown', 'revisada': true},
+        ]),
+        '/lineas/plantillas' => _json(['Hy-Line Brown', 'Lohmann Brown']),
+        '/lineas/1/plan' => _json([
+          {
+            'id': 10,
+            'nombre': 'Marek',
+            'tipo': 'vacuna',
+            'semana_ideal': 0,
+            'semana_max': 0,
+            'nota': 'En la incubadora',
+          },
+          {'id': 11, 'nombre': 'Gumboro', 'tipo': 'vacuna', 'semana_ideal': 2, 'semana_max': 3, 'nota': ''},
+        ]),
+        '/lineas/1/curva' => _json([
+          {'semana': 18, 'postura_pct': 6.0, 'peso_g': 1470.0},
+          {'semana': 30, 'postura_pct': 95.0, 'peso_g': null},
+        ]),
         '/alimentos/3/formula' => _json([
           {'insumo_id': 1, 'porcentaje': 55.0},
           {'insumo_id': 2, 'porcentaje': 45.0},
@@ -66,6 +86,14 @@ class Montaje {
 
 Future<void> abrir(WidgetTester tester, Montaje montaje) async {
   tester.view.physicalSize = const Size(800, 1800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(montaje.app);
+  await tester.pumpAndSettle();
+}
+
+Future<void> abrirAlto(WidgetTester tester, Montaje montaje) async {
+  tester.view.physicalSize = const Size(800, 3600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(montaje.app);
@@ -225,6 +253,137 @@ void main() {
     expect(find.text('ya existe una bodega con ese nombre'), findsOneWidget);
     expect(find.text('Nueva bodega'), findsWidgets);
     expect(find.text('Bodega creada'), findsNothing);
+  });
+
+  testWidgets('lista las razas y marca las que nadie ha revisado', (tester) async {
+    await abrirAlto(tester, Montaje());
+
+    expect(find.text('Hy-Line Brown'), findsOneWidget);
+    expect(find.text('Lohmann Brown'), findsOneWidget);
+    expect(find.text('Valores sin revisar'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Vacunas'), findsNWidgets(2));
+    expect(find.widgetWithText(OutlinedButton, 'Curva'), findsNWidgets(2));
+  });
+
+  testWidgets('crea una raza con los valores de referencia', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.text('Nueva raza'));
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Crear raza')).onPressed, isNull);
+    await pulsar(tester, find.widgetWithText(ChoiceChip, 'Lohmann Brown'));
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'Lohmann Brown');
+    await tester.enterText(find.byType(TextField), 'Lohmann Brown 2');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Crear raza'));
+
+    expect(montaje.envios, ['POST /lineas']);
+    expect(montaje.cuerpos.single, {'nombre': 'Lohmann Brown 2', 'plantilla': 'Lohmann Brown'});
+    expect(find.text('Raza creada'), findsOneWidget);
+  });
+
+  testWidgets('una raza en blanco no manda plantilla', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.text('Nueva raza'));
+    await tester.enterText(find.byType(TextField), 'Dekalb');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Crear raza'));
+
+    expect(montaje.cuerpos.single, {'nombre': 'Dekalb', 'plantilla': null});
+  });
+
+  testWidgets('cambia el nombre de una raza', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.byTooltip('Cambiar el nombre de Hy-Line Brown'));
+    await tester.enterText(find.byType(TextField), 'Hy-Line W-36');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
+
+    expect(montaje.envios, ['PATCH /lineas/1']);
+    expect(montaje.cuerpos.single, {'nombre': 'Hy-Line W-36'});
+  });
+
+  testWidgets('el plan muestra las vacunas, deja quitar y agregar, y guarda con los ids que ya tenían', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.widgetWithText(OutlinedButton, 'Vacunas').first);
+    expect(find.text('Vacunas de Hy-Line Brown'), findsOneWidget);
+    expect(find.text('Al nacer · Vacuna'), findsOneWidget);
+    expect(find.text('Semana 2 a 3 · Vacuna'), findsOneWidget);
+
+    await pulsar(tester, find.byTooltip('Quitar Marek'));
+    expect(find.text('Marek'), findsNothing);
+
+    await pulsar(tester, find.text('Agregar vacuna o cuidado'));
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Aceptar')).onPressed, isNull);
+    await tester.enterText(find.widgetWithText(TextField, 'Nombre'), 'Viruela');
+    await tester.enterText(find.widgetWithText(TextField, 'Semana ideal'), '6');
+    await tester.enterText(find.widgetWithText(TextField, 'Semana máxima'), '4');
+    await tester.pump();
+    expect(find.text('La semana máxima no puede ser menor que la ideal.'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Aceptar')).onPressed, isNull);
+    await tester.enterText(find.widgetWithText(TextField, 'Semana máxima'), '8');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Aceptar'));
+    expect(find.text('Semana 6 a 8 · Vacuna'), findsOneWidget);
+
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
+
+    expect(montaje.envios, ['PUT /lineas/1/plan']);
+    expect(montaje.cuerpos.single, [
+      {'id': 11, 'nombre': 'Gumboro', 'tipo': 'vacuna', 'semana_ideal': 2, 'semana_max': 3, 'nota': ''},
+      {'id': null, 'nombre': 'Viruela', 'tipo': 'vacuna', 'semana_ideal': 6, 'semana_max': 8, 'nota': ''},
+    ]);
+  });
+
+  testWidgets('se puede cambiar una vacuna del plan', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.widgetWithText(OutlinedButton, 'Vacunas').first);
+    await pulsar(tester, find.byTooltip('Cambiar Gumboro'));
+    await tester.enterText(find.widgetWithText(TextField, 'Semana máxima'), '4');
+    await pulsar(tester, find.widgetWithText(ChoiceChip, 'Desparasitación'));
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Aceptar'));
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
+
+    final enviadas = (montaje.cuerpos.single! as List).cast<Map<String, dynamic>>();
+    expect(enviadas.firstWhere((t) => t['id'] == 11), {
+      'id': 11,
+      'nombre': 'Gumboro',
+      'tipo': 'desparasitacion',
+      'semana_ideal': 2,
+      'semana_max': 4,
+      'nota': '',
+    });
+  });
+
+  testWidgets('la curva se edita como texto y se valida antes de enviar', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.widgetWithText(OutlinedButton, 'Curva').first);
+    expect(find.text('Curva de Hy-Line Brown'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '18 6 1470\n30 95');
+
+    await tester.enterText(find.byType(TextField), '18 6 1470\n30 mucho');
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
+    expect(find.textContaining('Línea 2'), findsOneWidget);
+    expect(montaje.envios, isEmpty);
+
+    await tester.enterText(find.byType(TextField), '20 45,5 1560\n30 95');
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
+
+    expect(montaje.envios, ['PUT /lineas/1/curva']);
+    expect(montaje.cuerpos.single, [
+      {'semana': 20, 'postura_pct': 45.5, 'peso_g': 1560},
+      {'semana': 30, 'postura_pct': 95, 'peso_g': null},
+    ]);
   });
 
   testWidgets('el menú de abajo solo trae Administrar cuando se le da la pantalla', (tester) async {

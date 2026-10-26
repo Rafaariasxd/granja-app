@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../dominio/administracion.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
+import '../dominio/sanidad.dart';
 import 'bodega.dart' show nombreDeEtapa;
 import 'estado_administracion.dart';
 import 'etiqueta.dart';
@@ -14,6 +15,12 @@ String nombreDeTipoInsumo(TipoInsumo tipo) => switch (tipo) {
   TipoInsumo.materiaPrima => 'Materia prima',
   TipoInsumo.alimentoComprado => 'Alimento comprado',
   TipoInsumo.alimentoPreparado => 'Alimento que preparamos',
+};
+
+String nombreDeTipoTarea(TipoTarea tipo) => switch (tipo) {
+  TipoTarea.vacuna => 'Vacuna',
+  TipoTarea.desparasitacion => 'Desparasitación',
+  TipoTarea.manejo => 'Otro cuidado',
 };
 
 String nombreDeTipoBodega(TipoBodega tipo) => tipo == TipoBodega.materiaPrima ? 'Materia prima' : 'Alimento';
@@ -64,7 +71,10 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
                 children: [
                   Text('Administrar', style: textos.headlineMedium),
                   const SizedBox(height: 4),
-                  Text('Bodegas, insumos y fórmulas', style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave)),
+                  Text(
+                    'Bodegas, insumos, fórmulas y razas',
+                    style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave),
+                  ),
                   const SizedBox(height: 16),
                   if (catalogo == null)
                     _Aviso(texto: estado.problema ?? (estado.cargando ? 'Cargando…' : 'Sin datos todavía.'))
@@ -104,6 +114,22 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
                       const SizedBox(height: 10),
                     ],
                     if (catalogo.insumos.isEmpty) const _Aviso(texto: 'Todavía no hay insumos.'),
+                    const SizedBox(height: 14),
+                    _Titulo(
+                      texto: 'Razas',
+                      accion: 'Nueva raza',
+                      alPulsar: () => _abrir((_) => _HojaRazaNueva(estado: estado), 'Raza creada'),
+                    ),
+                    for (final r in catalogo.razas) ...[
+                      _RazaFila(
+                        raza: r,
+                        alNombre: () => _abrir((_) => _HojaRazaNombre(estado: estado, raza: r), 'Nombre guardado'),
+                        alPlan: () => _abrir((_) => _HojaPlan(estado: estado, raza: r), 'Vacunas y cuidados guardados'),
+                        alCurva: () => _abrir((_) => _HojaCurva(estado: estado, raza: r), 'Curva guardada'),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    if (catalogo.razas.isEmpty) const _Aviso(texto: 'Todavía no hay razas.'),
                   ],
                 ],
               ),
@@ -271,6 +297,71 @@ class _InsumoFila extends StatelessWidget {
               style: OutlinedButton.styleFrom(minimumSize: const Size(110, 48)),
               child: const Text('Fórmula'),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RazaFila extends StatelessWidget {
+  const _RazaFila({required this.raza, required this.alNombre, required this.alPlan, required this.alCurva});
+
+  final Raza raza;
+  final VoidCallback alNombre;
+  final VoidCallback alPlan;
+  final VoidCallback alCurva;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return _Tarjeta(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(raza.nombre, style: textos.titleLarge)),
+              IconButton(
+                tooltip: 'Cambiar el nombre de ${raza.nombre}',
+                onPressed: alNombre,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+            ],
+          ),
+          if (!raza.revisada) ...[
+            const SizedBox(height: 2),
+            const Etiqueta(
+              texto: 'Valores sin revisar',
+              icono: Icons.schedule,
+              fondo: Colores.revisarFondo,
+              color: Colores.revisarTexto,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Son una referencia. Revísalos con el veterinario y ajústalos.',
+              style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: alPlan,
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                  child: const Text('Vacunas'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: alCurva,
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                  child: const Text('Curva'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -750,6 +841,399 @@ class _HojaFormulaState extends State<_HojaFormula> with _Guardado {
               : null,
           child: const Text('Guardar fórmula'),
         ),
+      ],
+    );
+  }
+}
+
+class _HojaRazaNueva extends StatefulWidget {
+  const _HojaRazaNueva({required this.estado});
+
+  final EstadoAdministracion estado;
+
+  @override
+  State<_HojaRazaNueva> createState() => _HojaRazaNuevaState();
+}
+
+class _HojaRazaNuevaState extends State<_HojaRazaNueva> with _Guardado {
+  final _nombre = TextEditingController();
+  String? _plantilla;
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final plantillas = widget.estado.catalogo!.plantillas;
+    return _Hoja(
+      titulo: 'Nueva raza',
+      children: [
+        _Campo(controlador: _nombre, etiqueta: 'Nombre', autofoco: true, alCambiar: () => setState(() {})),
+        const SizedBox(height: 16),
+        Text('¿Empezar con valores de referencia?', style: textos.bodyLarge),
+        const SizedBox(height: 8),
+        _Opciones<String?>(
+          opciones: [(null, 'En blanco'), for (final p in plantillas) (p, p)],
+          elegida: _plantilla,
+          alElegir: (p) => setState(() {
+            _plantilla = p;
+            if (p != null && _nombre.text.trim().isEmpty) _nombre.text = p;
+          }),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Trae vacunas, peso y postura esperados. Después los puedes cambiar.',
+          style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
+        ),
+        _Error(error),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _nombre.text.trim().isNotEmpty && !guardando
+              ? () => guardar(() => widget.estado.crearRaza(_nombre.text.trim(), _plantilla))
+              : null,
+          child: const Text('Crear raza'),
+        ),
+      ],
+    );
+  }
+}
+
+class _HojaRazaNombre extends StatefulWidget {
+  const _HojaRazaNombre({required this.estado, required this.raza});
+
+  final EstadoAdministracion estado;
+  final Raza raza;
+
+  @override
+  State<_HojaRazaNombre> createState() => _HojaRazaNombreState();
+}
+
+class _HojaRazaNombreState extends State<_HojaRazaNombre> with _Guardado {
+  late final _nombre = TextEditingController(text: widget.raza.nombre);
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Hoja(
+      titulo: 'Nombre de la raza',
+      children: [
+        _Campo(controlador: _nombre, etiqueta: 'Nombre', autofoco: true, alCambiar: () => setState(() {})),
+        _Error(error),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _nombre.text.trim().isNotEmpty && !guardando
+              ? () => guardar(() => widget.estado.renombrarRaza(widget.raza.id, _nombre.text.trim()))
+              : null,
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _HojaPlan extends StatefulWidget {
+  const _HojaPlan({required this.estado, required this.raza});
+
+  final EstadoAdministracion estado;
+  final Raza raza;
+
+  @override
+  State<_HojaPlan> createState() => _HojaPlanState();
+}
+
+class _HojaPlanState extends State<_HojaPlan> with _Guardado {
+  List<TareaDePlan>? _tareas;
+  bool _fallo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.estado.plan(widget.raza.id).then((plan) {
+      if (!mounted) return;
+      setState(() {
+        _tareas = plan;
+        _fallo = plan == null;
+      });
+    });
+  }
+
+  List<TareaDePlan> get _ordenadas => [..._tareas!]
+    ..sort((a, b) {
+      final porSemana = a.semanaIdeal.compareTo(b.semanaIdeal);
+      return porSemana != 0 ? porSemana : a.semanaMax.compareTo(b.semanaMax);
+    });
+
+  Future<void> _editar([TareaDePlan? actual]) async {
+    final nueva = await showModalBottomSheet<TareaDePlan>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colores.cal,
+      builder: (_) => _HojaTarea(actual: actual),
+    );
+    if (nueva == null || !mounted) return;
+    setState(() {
+      final lista = _tareas!;
+      final i = actual == null ? -1 : lista.indexOf(actual);
+      if (i >= 0) {
+        lista[i] = nueva;
+      } else {
+        lista.add(nueva);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return _Hoja(
+      titulo: 'Vacunas de ${widget.raza.nombre}',
+      subtitulo: 'Qué se aplica y hasta qué semana',
+      children: [
+        if (_fallo)
+          const _Aviso(texto: 'No se pudo traer el plan. Revisa la señal e inténtalo de nuevo.')
+        else if (_tareas == null)
+          const Center(child: CircularProgressIndicator())
+        else ...[
+          for (final t in _ordenadas) ...[
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colores.borde),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.nombre, style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          '${t.cuando} · ${nombreDeTipoTarea(t.tipo)}',
+                          style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cambiar ${t.nombre}',
+                    onPressed: () => _editar(t),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Quitar ${t.nombre}',
+                    onPressed: () => setState(() => _tareas!.remove(t)),
+                    icon: const Icon(Icons.delete_outline, color: Colores.urgenteTexto),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (_tareas!.isEmpty) const _Aviso(texto: 'Esta raza todavía no tiene vacunas.'),
+          TextButton.icon(
+            onPressed: _editar,
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar vacuna o cuidado'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colores.monte,
+              textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              minimumSize: const Size(0, 48),
+            ),
+          ),
+          _Error(error),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: guardando ? null : () => guardar(() => widget.estado.guardarPlan(widget.raza.id, _ordenadas)),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _HojaTarea extends StatefulWidget {
+  const _HojaTarea({this.actual});
+
+  final TareaDePlan? actual;
+
+  @override
+  State<_HojaTarea> createState() => _HojaTareaState();
+}
+
+class _HojaTareaState extends State<_HojaTarea> {
+  late final _nombre = TextEditingController(text: widget.actual?.nombre ?? '');
+  late final _ideal = TextEditingController(text: widget.actual?.semanaIdeal.toString() ?? '');
+  late final _maxima = TextEditingController(text: widget.actual?.semanaMax.toString() ?? '');
+  late final _nota = TextEditingController(text: widget.actual?.nota ?? '');
+  late TipoTarea _tipo = widget.actual?.tipo ?? TipoTarea.vacuna;
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _ideal.dispose();
+    _maxima.dispose();
+    _nota.dispose();
+    super.dispose();
+  }
+
+  int? get _semanaIdeal => int.tryParse(_ideal.text.trim());
+  int? get _semanaMax => int.tryParse(_maxima.text.trim());
+
+  bool get _valido {
+    final ideal = _semanaIdeal;
+    final maxima = _semanaMax;
+    return _nombre.text.trim().isNotEmpty && ideal != null && maxima != null && ideal >= 0 && maxima >= ideal;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final ideal = _semanaIdeal;
+    final maxima = _semanaMax;
+    final mal = ideal != null && maxima != null && maxima < ideal;
+    return _Hoja(
+      titulo: widget.actual == null ? 'Nueva vacuna o cuidado' : 'Cambiar',
+      children: [
+        _Campo(controlador: _nombre, etiqueta: 'Nombre', autofoco: true, alCambiar: () => setState(() {})),
+        const SizedBox(height: 16),
+        _Opciones<TipoTarea>(
+          opciones: [for (final t in TipoTarea.values) (t, nombreDeTipoTarea(t))],
+          elegida: _tipo,
+          alElegir: (t) => setState(() => _tipo = t),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _Campo(
+                controlador: _ideal,
+                etiqueta: 'Semana ideal',
+                numerico: true,
+                alCambiar: () => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _Campo(
+                controlador: _maxima,
+                etiqueta: 'Semana máxima',
+                numerico: true,
+                alCambiar: () => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          mal
+              ? 'La semana máxima no puede ser menor que la ideal.'
+              : 'Después de la semana máxima se marca como atrasada. 0 es al nacer.',
+          style: textos.bodyMedium?.copyWith(color: mal ? Colores.urgenteTexto : Colores.tintaSuave),
+        ),
+        const SizedBox(height: 12),
+        _Campo(controlador: _nota, etiqueta: 'Nota (opcional)'),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _valido
+              ? () => Navigator.of(context).pop(
+                  TareaDePlan(
+                    id: widget.actual?.id,
+                    nombre: _nombre.text.trim(),
+                    tipo: _tipo,
+                    semanaIdeal: _semanaIdeal!,
+                    semanaMax: _semanaMax!,
+                    nota: _nota.text.trim(),
+                  ),
+                )
+              : null,
+          child: const Text('Aceptar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _HojaCurva extends StatefulWidget {
+  const _HojaCurva({required this.estado, required this.raza});
+
+  final EstadoAdministracion estado;
+  final Raza raza;
+
+  @override
+  State<_HojaCurva> createState() => _HojaCurvaState();
+}
+
+class _HojaCurvaState extends State<_HojaCurva> with _Guardado {
+  final _texto = TextEditingController();
+  bool _cargada = false;
+  bool _fallo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.estado.curva(widget.raza.id).then((puntos) {
+      if (!mounted) return;
+      setState(() {
+        _fallo = puntos == null;
+        _cargada = puntos != null;
+        if (puntos != null) _texto.text = curvaComoTexto(puntos);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _texto.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _enviar() async {
+    final leida = leerCurva(_texto.text);
+    if (!leida.esValida) return leida.error;
+    return widget.estado.guardarCurva(widget.raza.id, leida.puntos);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return _Hoja(
+      titulo: 'Curva de ${widget.raza.nombre}',
+      subtitulo: 'Postura y peso esperados por semana de edad',
+      children: [
+        if (_fallo)
+          const _Aviso(texto: 'No se pudo traer la curva. Revisa la señal e inténtalo de nuevo.')
+        else if (!_cargada)
+          const Center(child: CircularProgressIndicator())
+        else ...[
+          Text(
+            'Una semana por línea: semana, % de postura y peso en gramos. Ejemplo: 30 95 1890',
+            style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _texto,
+            minLines: 8,
+            maxLines: 14,
+            keyboardType: TextInputType.multiline,
+            style: const TextStyle(fontSize: 18, fontFamily: 'monospace'),
+            decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '30 95 1890'),
+          ),
+          _Error(error),
+          const SizedBox(height: 16),
+          FilledButton(onPressed: guardando ? null : () => guardar(_enviar), child: const Text('Guardar')),
+        ],
       ],
     );
   }
