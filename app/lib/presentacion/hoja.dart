@@ -27,7 +27,7 @@ Future<T?> abrirHoja<T>({
             style: TextButton.styleFrom(
               foregroundColor: Colores.monte,
               minimumSize: const Size(0, 52),
-              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              textStyle: const TextStyle(fontFamily: letraGranja, fontSize: 18, fontWeight: FontWeight.w800),
             ),
           ),
         ),

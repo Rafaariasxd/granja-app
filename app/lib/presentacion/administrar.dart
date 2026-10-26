@@ -203,7 +203,7 @@ class _Titulo extends StatelessWidget {
             label: Text(accion),
             style: TextButton.styleFrom(
               foregroundColor: Colores.monte,
-              textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              textStyle: const TextStyle(fontFamily: letraGranja, fontSize: 17, fontWeight: FontWeight.w800),
               minimumSize: const Size(0, 48),
             ),
           ),
@@ -1152,7 +1152,7 @@ class _HojaPlanState extends State<_HojaPlan> with _Guardado {
             label: const Text('Agregar vacuna o cuidado'),
             style: TextButton.styleFrom(
               foregroundColor: Colores.monte,
-              textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              textStyle: const TextStyle(fontFamily: letraGranja, fontSize: 17, fontWeight: FontWeight.w800),
               minimumSize: const Size(0, 48),
             ),
           ),

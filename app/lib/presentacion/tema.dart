@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const letraGranja = 'AtkinsonHyperlegibleNext';
+
 abstract final class Colores {
   static const monte = Color(0xFF1E5B43);
   static const monteOscuro = Color(0xFF164532);
@@ -40,7 +42,7 @@ ThemeData temaGranja() {
   final forma = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
   return ThemeData(
     useMaterial3: true,
-    fontFamily: 'AtkinsonHyperlegibleNext',
+    fontFamily: letraGranja,
     colorScheme: esquema,
     scaffoldBackgroundColor: Colores.cal,
     textTheme: textos.apply(bodyColor: Colores.tinta, displayColor: Colores.tinta),
@@ -48,7 +50,7 @@ ThemeData temaGranja() {
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(62),
         shape: forma,
-        textStyle: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+        textStyle: const TextStyle(fontFamily: letraGranja, fontSize: 21, fontWeight: FontWeight.w800),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -56,7 +58,7 @@ ThemeData temaGranja() {
         minimumSize: const Size.fromHeight(56),
         shape: forma,
         side: const BorderSide(color: Colores.monte, width: 2),
-        textStyle: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontFamily: letraGranja, fontSize: 19, fontWeight: FontWeight.w700),
       ),
     ),
     cardTheme: CardThemeData(

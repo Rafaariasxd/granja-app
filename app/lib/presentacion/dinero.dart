@@ -347,7 +347,7 @@ class _Tabla extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: colorear && valor.startsWith('\$ -') ? Colores.urgenteTexto : Colores.tinta,
+                      color: colorear && valor.startsWith('-') ? Colores.urgenteTexto : Colores.tinta,
                     ),
                   ),
                 ],

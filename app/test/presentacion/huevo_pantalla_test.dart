@@ -93,7 +93,8 @@ Future<void> pulsar(WidgetTester tester, Finder buscador) async {
 }
 
 Future<void> escribir(WidgetTester tester, String etiqueta, String texto) async {
-  final campo = find.widgetWithText(TextField, etiqueta);
+  final porClave = find.byKey(ValueKey(etiqueta));
+  final campo = porClave.evaluate().isNotEmpty ? porClave : find.widgetWithText(TextField, etiqueta);
   await tester.ensureVisible(campo);
   await tester.enterText(campo, texto);
   await tester.pump();
@@ -446,8 +447,8 @@ void main() {
       final montaje = Montaje(datos: datos);
       await abrirHojaDelDia(tester, montaje, 100);
 
-      expect(find.widgetWithText(TextField, 'AA Cajas'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'Roto Cajas'), findsNothing);
+      expect(find.byKey(const ValueKey('AA Cajas')), findsOneWidget);
+      expect(find.byKey(const ValueKey('Roto Cajas')), findsNothing);
     });
   });
 }

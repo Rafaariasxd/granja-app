@@ -382,16 +382,24 @@ class _Hoja extends StatelessWidget {
 }
 
 class _Numero extends StatelessWidget {
-  const _Numero({required this.controlador, required this.etiqueta, required this.alCambiar, this.grande = false});
+  const _Numero({
+    required this.controlador,
+    required this.etiqueta,
+    required this.alCambiar,
+    this.grande = false,
+    this.clave,
+  });
 
   final TextEditingController controlador;
   final String etiqueta;
   final VoidCallback alCambiar;
   final bool grande;
+  final String? clave;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: clave == null ? null : ValueKey<String>(clave!),
       controller: controlador,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(grande ? 10 : 5)],
@@ -439,15 +447,30 @@ class _CamposCantidad extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _Numero(controlador: cantidad.cajas, etiqueta: '${prefijo}Cajas', alCambiar: alCambiar),
+          child: _Numero(
+            controlador: cantidad.cajas,
+            etiqueta: 'Cajas',
+            clave: '${prefijo}Cajas',
+            alCambiar: alCambiar,
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _Numero(controlador: cantidad.cartones, etiqueta: '${prefijo}Cartones', alCambiar: alCambiar),
+          child: _Numero(
+            controlador: cantidad.cartones,
+            etiqueta: 'Cartones',
+            clave: '${prefijo}Cartones',
+            alCambiar: alCambiar,
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _Numero(controlador: cantidad.sueltos, etiqueta: '${prefijo}Huevos', alCambiar: alCambiar),
+          child: _Numero(
+            controlador: cantidad.sueltos,
+            etiqueta: 'Huevos',
+            clave: '${prefijo}Huevos',
+            alCambiar: alCambiar,
+          ),
         ),
       ],
     );
@@ -686,14 +709,14 @@ class _HojaVentaState extends State<_HojaVenta> with _Guardado {
           ),
           const SizedBox(height: 6),
           Text(
-            sugerido == null
-                ? (lineas.isEmpty
-                      ? 'Escribe cuánto huevo sale.'
-                      : 'Falta el precio de alguna categoría: escribe el total.')
+            lineas.isEmpty
+                ? 'Escribe cuánto huevo sale.'
+                : sugerido == null
+                ? 'Falta el precio de alguna categoría: escribe el total.'
                 : 'Según los precios: ${pesos(sugerido)}',
             style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
           ),
-        ] else if (sugerido != null)
+        ] else if (sugerido != null && lineas.isNotEmpty)
           Text('Si se vende todo serían ${pesos(sugerido)}', style: textos.bodyLarge),
         mensajeDeError(),
         const SizedBox(height: 16),

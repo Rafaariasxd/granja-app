@@ -194,7 +194,7 @@ void main() {
     expect(find.text('Ganancia por galpón'), findsOneWidget);
     expect(find.text('Entró \$ 4.000.000 · salió \$ 1.000.000'), findsOneWidget);
     expect(find.text('Sin asignar'), findsOneWidget);
-    expect(find.text('\$ -1.000.000'), findsOneWidget);
+    expect(find.text('- \$ 1.000.000'), findsOneWidget);
   });
 
   testWidgets('el huevo ya no se vende aquí sino en la pestaña Huevo', (tester) async {
