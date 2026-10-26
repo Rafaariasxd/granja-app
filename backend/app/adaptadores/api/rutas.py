@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.adaptadores.api import esquemas
 from app.adaptadores.api.dependencias import administrador, token_de_sesion, unidad_de_trabajo, usuario_actual
-from app.casos_uso import finanzas, galpones, inventario, lineas, lotes, registros, sanidad, usuarios
+from app.casos_uso import finanzas, galpones, huevos, inventario, lineas, lotes, registros, sanidad, usuarios
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import fechas
 from app.dominio.finanzas import MovimientoDinero
+from app.dominio.huevos import EstadoSalida, PrecioHuevo
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Usuario
 from app.dominio.sanidad import PuntoCurva, TareaPlan
 
@@ -371,3 +372,89 @@ def guardar_movimiento(movimiento_id: uuid.UUID, datos: esquemas.MovimientoDiner
 @protegido.delete("/finanzas/{movimiento_id}", status_code=status.HTTP_204_NO_CONTENT)
 def borrar_movimiento(movimiento_id: uuid.UUID, uow: UnidadDep, quien: SoloAdmin):
     finanzas.borrar_movimiento(uow, quien, movimiento_id, fechas.ahora_utc())
+
+
+def _hoy() -> date:
+    return fechas.fecha_en_granja(datetime.now(UTC))
+
+
+def _lineas(cantidades: list[esquemas.CantidadHuevoIn]) -> list[tuple[int, int]]:
+    return [(c.categoria_id, c.total) for c in cantidades]
+
+
+@protegido.get("/huevos", response_model=esquemas.BodegaHuevoOut)
+def bodega_de_huevo(uow: UnidadDep):
+    actual = huevos.bodega(uow)
+    return esquemas.BodegaHuevoOut(
+        existencias=[
+            esquemas.ExistenciaHuevoOut(
+                categoria_id=e.categoria_id,
+                categoria=e.categoria,
+                activa=e.activa,
+                huevos=e.huevos,
+                cajas=e.empaque.cajas,
+                cartones=e.empaque.cartones,
+                sueltos=e.empaque.sueltos,
+            )
+            for e in actual.existencias
+        ],
+        precios=actual.precios,
+        abiertas=actual.abiertas,
+    )
+
+
+@protegido.post("/huevos/ingresos", response_model=esquemas.MovimientoHuevoOut, status_code=status.HTTP_201_CREATED)
+def ingresar_huevo(datos: esquemas.MovimientoBodegaHuevoIn, uow: UnidadDep, quien: UsuarioDep):
+    return huevos.ingresar(uow, quien, datos.operacion_id, datos.fecha or _hoy(), datos.categoria_id, datos.total)
+
+
+@protegido.post("/huevos/bajas", response_model=esquemas.MovimientoHuevoOut, status_code=status.HTTP_201_CREATED)
+def dar_de_baja_huevo(datos: esquemas.MovimientoBodegaHuevoIn, uow: UnidadDep, quien: UsuarioDep):
+    return huevos.dar_de_baja(
+        uow, quien, datos.operacion_id, datos.fecha or _hoy(), datos.categoria_id, datos.total, datos.nota
+    )
+
+
+@protegido.post("/huevos/conteos", response_model=esquemas.MovimientoHuevoOut | None)
+def contar_huevo(datos: esquemas.ConteoHuevoIn, uow: UnidadDep, quien: UsuarioDep):
+    return huevos.contar(uow, quien, datos.fecha or _hoy(), datos.categoria_id, datos.total, datos.nota)
+
+
+@protegido.put(
+    "/huevos/precios/{categoria_id}", response_model=esquemas.PrecioHuevoIo, dependencies=[Depends(administrador)]
+)
+def fijar_precio_de_huevo(categoria_id: int, datos: esquemas.PrecioHuevoIo, uow: UnidadDep):
+    precio = PrecioHuevo(categoria_id, datos.precio_caja, datos.precio_carton, datos.precio_mayorista)
+    return huevos.fijar_precio(uow, precio)
+
+
+@protegido.get("/huevos/salidas", response_model=list[esquemas.SalidaHuevoOut])
+def listar_salidas(uow: UnidadDep, estado: Annotated[EstadoSalida | None, Query()] = None):
+    return uow.salidas.listar(estado)
+
+
+@protegido.put("/huevos/salidas/{salida_id}", response_model=esquemas.SalidaHuevoOut)
+def abrir_salida(salida_id: uuid.UUID, datos: esquemas.SalidaHuevoIn, uow: UnidadDep, quien: UsuarioDep):
+    salida = huevos.nueva_salida(
+        salida_id, datos.fecha or _hoy(), datos.tipo_venta, datos.cliente, _lineas(datos.lineas)
+    )
+    return huevos.abrir_salida(uow, quien, salida)
+
+
+@protegido.post("/huevos/salidas/{salida_id}/cierre", response_model=esquemas.SalidaHuevoOut)
+def cerrar_salida(salida_id: uuid.UUID, datos: esquemas.CierreSalidaIn, uow: UnidadDep, quien: UsuarioDep):
+    vendidos = None if datos.vendidos is None else dict(_lineas(datos.vendidos))
+    return huevos.cerrar_salida(uow, quien, salida_id, vendidos, datos.valor_cobrado, datos.fecha or _hoy())
+
+
+@protegido.post("/huevos/salidas/{salida_id}/anulacion", response_model=esquemas.SalidaHuevoOut)
+def anular_salida(salida_id: uuid.UUID, uow: UnidadDep, quien: UsuarioDep):
+    return huevos.anular_salida(uow, quien, salida_id, _hoy())
+
+
+@protegido.put("/huevos/ventas/{salida_id}", response_model=esquemas.SalidaHuevoOut)
+def vender_huevo(salida_id: uuid.UUID, datos: esquemas.VentaHuevoIn, uow: UnidadDep, quien: UsuarioDep):
+    salida = huevos.nueva_salida(
+        salida_id, datos.fecha or _hoy(), datos.tipo_venta, datos.cliente, _lineas(datos.lineas)
+    )
+    return huevos.vender(uow, quien, salida, datos.valor_cobrado)

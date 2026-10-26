@@ -3,11 +3,12 @@ from datetime import UTC, date, datetime, timedelta
 
 from app.adaptadores.db.conexion import SessionLocal
 from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
-from app.casos_uso import finanzas, galpones, inventario, lineas, lotes, registros, sanidad
+from app.casos_uso import finanzas, galpones, huevos, inventario, lineas, lotes, registros, sanidad
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import produccion
 from app.dominio.fechas import ahora_utc, fecha_en_granja
 from app.dominio.finanzas import MovimientoDinero, Rubro
+from app.dominio.huevos import PrecioHuevo, a_huevos
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Rol, TipoBodega, TipoInsumo, Usuario
 from app.dominio.sanidad import punto_en
 
@@ -83,6 +84,12 @@ def cargar(uow: UnidadDeTrabajo, hoy: date) -> None:
         _registrar(uow, ids["Galpón 5"], fecha, 0, 1, vivas["Galpón 5"] * 0.045)
 
 
+BODEGA_DE_HUEVO = {
+    "AA": (150000, 14000, 138000, 12, 4),
+    "A": (132000, 12500, 120000, 8, 0),
+    "B": (114000, 11000, 102000, 3, 7),
+    "C": (96000, 9000, 84000, 1, 2),
+}
 VENTAS_EJEMPLO = [
     (3, "AA", 9000, 2700000, "Tienda La Esperanza"),
     (3, "A", 4500, 1215000, "Tienda La Esperanza"),
@@ -100,7 +107,11 @@ def _cargar_finanzas(uow: UnidadDeTrabajo, quien: Usuario, lote: Lote, hoy: date
     for nombre in finanzas.CATEGORIAS_INICIALES:
         if uow.categorias.por_nombre(nombre) is None:
             finanzas.crear_categoria(uow, nombre)
-    for dias, categoria, huevos, valor, cliente in VENTAS_EJEMPLO:
+    for nombre, (caja, carton, mayorista, cajas, cartones) in BODEGA_DE_HUEVO.items():
+        categoria = uow.categorias.por_nombre(nombre)
+        huevos.fijar_precio(uow, PrecioHuevo(categoria.id, caja, carton, mayorista))
+        huevos.ingresar(uow, quien, uuid.uuid4(), hoy, categoria.id, a_huevos(cajas, cartones))
+    for dias, categoria, cantidad, valor, cliente in VENTAS_EJEMPLO:
         movimiento = MovimientoDinero(
             id=uuid.uuid4(),
             fecha=hoy - timedelta(days=dias),
@@ -108,7 +119,7 @@ def _cargar_finanzas(uow: UnidadDeTrabajo, quien: Usuario, lote: Lote, hoy: date
             valor=valor,
             lote_id=lote.id,
             categoria_id=uow.categorias.por_nombre(categoria).id,
-            cantidad_huevos=huevos,
+            cantidad_huevos=cantidad,
             contraparte=cliente,
         )
         finanzas.guardar_movimiento(uow, quien, movimiento)
