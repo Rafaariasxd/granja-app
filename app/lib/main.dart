@@ -25,6 +25,7 @@ import 'dominio/modelos.dart';
 import 'presentacion/administrar.dart';
 import 'presentacion/al_reanudar.dart';
 import 'presentacion/asistente.dart';
+import 'presentacion/avisos_del_dia.dart';
 import 'presentacion/bodega.dart';
 import 'presentacion/cascaron.dart';
 import 'presentacion/estado_administracion.dart';
@@ -86,6 +87,7 @@ Future<void> main() async {
       dinero: dinero,
       huevos: huevos,
       asistente: asistente,
+      pestana: ValueNotifier<int>(0),
       administracion: administracion,
       api: api,
       buscador: BuscadorRegistro(api, almacen),
@@ -104,6 +106,7 @@ class GranjaApp extends StatelessWidget {
     required this.dinero,
     required this.huevos,
     required this.asistente,
+    required this.pestana,
     required this.administracion,
     required this.api,
     required this.buscador,
@@ -117,6 +120,7 @@ class GranjaApp extends StatelessWidget {
   final EstadoFinanzas dinero;
   final EstadoHuevos huevos;
   final EstadoAsistente asistente;
+  final ValueNotifier<int> pestana;
   final EstadoAdministracion administracion;
   final ApiGranja api;
   final BuscadorRegistro buscador;
@@ -139,6 +143,7 @@ class GranjaApp extends StatelessWidget {
             if (sesion.sesion?.esAdministrador ?? false) administracion.cargar();
           },
           child: Cascaron(
+            pestana: pestana,
             alAbrirBodega: bodega.cargar,
             alAbrirSanidad: sanidad.cargar,
             alAbrirDinero: () {
@@ -150,6 +155,20 @@ class GranjaApp extends StatelessWidget {
               envios: envios,
               nombreUsuario: sesion.sesion?.nombre,
               alSalir: sesion.salir,
+              avisos: ListenableBuilder(
+                listenable: Listenable.merge([sanidad, bodega, huevos]),
+                builder: (_, _) => TarjetaAvisosDelDia(
+                  avisos: avisosDelDia(
+                    sanidad: sanidad.panorama,
+                    inventario: bodega.inventario,
+                    huevo: huevos.bodega,
+                    pestanaBodega: 1,
+                    pestanaSanidad: 2,
+                    pestanaDinero: 3,
+                  ),
+                  alAbrir: (indice) => pestana.value = indice,
+                ),
+              ),
               alRegistrar: (galpon) => _registrar(contexto, galpon),
               alCorregir: (galpon) => _corregir(contexto, galpon),
             ),

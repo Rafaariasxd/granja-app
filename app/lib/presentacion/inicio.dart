@@ -18,6 +18,7 @@ class InicioPantalla extends StatefulWidget {
     this.alCorregir,
     this.nombreUsuario,
     this.alSalir,
+    this.avisos,
   });
 
   final EstadoInicio estado;
@@ -26,6 +27,7 @@ class InicioPantalla extends StatefulWidget {
   final void Function(ResumenGalpon galpon)? alCorregir;
   final String? nombreUsuario;
   final VoidCallback? alSalir;
+  final Widget? avisos;
 
   @override
   State<InicioPantalla> createState() => _InicioPantallaState();
@@ -67,6 +69,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
                     _SinDatos(cargando: estado.cargando)
                   else ...[
                     _Tarjeta(resumen: resumen, alRegistrar: widget.alRegistrar),
+                    ?widget.avisos,
                     for (final galpon in resumen.conLote) ...[
                       const SizedBox(height: 14),
                       _GalponConLote(
