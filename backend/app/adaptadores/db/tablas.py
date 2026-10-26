@@ -204,3 +204,30 @@ class TablaPesaje(Base):
     fecha: Mapped[date]
     peso_g: Mapped[float]
     aves_pesadas: Mapped[int]
+
+
+class TablaCategoriaHuevo(Base):
+    __tablename__ = "categorias_huevo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(50), unique=True)
+    activa: Mapped[bool] = mapped_column(default=True)
+
+
+class TablaMovimientoDinero(Base):
+    __tablename__ = "movimientos_dinero"
+    __table_args__ = (
+        CheckConstraint("valor > 0", name="valor"),
+        CheckConstraint("cantidad_huevos IS NULL OR cantidad_huevos > 0", name="cantidad_huevos"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    fecha: Mapped[date] = mapped_column(index=True)
+    rubro: Mapped[str] = mapped_column(String(30))
+    valor: Mapped[float]
+    descripcion: Mapped[str] = mapped_column(Text, default="")
+    lote_id: Mapped[int | None] = mapped_column(ForeignKey("lotes.id"))
+    categoria_id: Mapped[int | None] = mapped_column(ForeignKey("categorias_huevo.id"))
+    cantidad_huevos: Mapped[int | None]
+    contraparte: Mapped[str] = mapped_column(String(100), default="")
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))

@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from app import datos_ejemplo
-from app.casos_uso import galpones, inventario, sanidad, usuarios
+from app.casos_uso import finanzas, galpones, inventario, sanidad, usuarios
 from app.dominio.modelos import Etapa, Rol
 from tests.fakes import UnidadEnMemoria
 
@@ -58,3 +58,11 @@ def test_los_datos_de_ejemplo_dejan_alertas_de_sanidad_para_ver():
     assert ("Galpón 1", "Newcastle (refuerzo en postura): atrasada") in titulos
     assert ("Galpón 5", "Peso algo bajo") in titulos
     assert not any(t.endswith(": atrasada") for g, t in titulos if g == "Galpón 3")
+
+
+def test_los_datos_de_ejemplo_traen_ventas_y_gastos_del_mes():
+    uow = UnidadEnMemoria()
+    datos_ejemplo.cargar(uow, HOY)
+    r = finanzas.resumen(uow, date(2026, 10, 1), HOY)
+    assert r.ingresos > 0 and r.egresos > 0
+    assert {v.categoria for v in r.huevos} == {"AA", "A", "B"}

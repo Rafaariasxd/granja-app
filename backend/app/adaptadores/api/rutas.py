@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.adaptadores.api import esquemas
 from app.adaptadores.api.dependencias import administrador, token_de_sesion, unidad_de_trabajo, usuario_actual
-from app.casos_uso import galpones, inventario, lineas, lotes, registros, sanidad, usuarios
+from app.casos_uso import finanzas, galpones, inventario, lineas, lotes, registros, sanidad, usuarios
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import fechas
+from app.dominio.finanzas import MovimientoDinero
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Usuario
 from app.dominio.sanidad import PuntoCurva, TareaPlan
 
@@ -313,3 +314,60 @@ def preparar_alimento(producto_id: int, datos: esquemas.PreparacionIn, uow: Unid
 @protegido.put("/bodegas/{bodega_id}/alimento-en-uso/{etapa}", status_code=status.HTTP_204_NO_CONTENT)
 def definir_alimento_en_uso(bodega_id: int, etapa: Etapa, datos: esquemas.EnUsoIn, uow: UnidadDep, quien: SoloAdmin):
     inventario.definir_alimento_en_uso(uow, quien, bodega_id, etapa, datos.insumo_id, fechas.ahora_utc())
+
+
+def _periodo(desde: date | None, hasta: date | None) -> tuple[date, date]:
+    hoy = fechas.fecha_en_granja(datetime.now(UTC))
+    inicio = desde or hoy.replace(day=1)
+    return inicio, hasta or hoy
+
+
+@protegido.get("/categorias-huevo", response_model=list[esquemas.CategoriaHuevoOut])
+def listar_categorias(uow: UnidadDep):
+    return finanzas.listar_categorias(uow)
+
+
+@protegido.post(
+    "/categorias-huevo",
+    response_model=esquemas.CategoriaHuevoOut,
+    dependencies=[Depends(administrador)],
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_categoria(datos: esquemas.CategoriaHuevoIn, uow: UnidadDep):
+    return finanzas.crear_categoria(uow, datos.nombre)
+
+
+@protegido.patch(
+    "/categorias-huevo/{categoria_id}",
+    response_model=esquemas.CategoriaHuevoOut,
+    dependencies=[Depends(administrador)],
+)
+def cambiar_categoria(categoria_id: int, datos: esquemas.CategoriaHuevoCambio, uow: UnidadDep):
+    return finanzas.cambiar_categoria(uow, categoria_id, datos.nombre, datos.activa)
+
+
+@protegido.get("/finanzas", response_model=list[esquemas.MovimientoDineroOut])
+def listar_movimientos(
+    uow: UnidadDep, desde: Annotated[date | None, Query()] = None, hasta: Annotated[date | None, Query()] = None
+):
+    inicio, fin = _periodo(desde, hasta)
+    return finanzas.listar_movimientos(uow, inicio, fin)
+
+
+@protegido.get("/finanzas/resumen", response_model=esquemas.ResumenFinanzasOut)
+def resumen_de_finanzas(
+    uow: UnidadDep, desde: Annotated[date | None, Query()] = None, hasta: Annotated[date | None, Query()] = None
+):
+    inicio, fin = _periodo(desde, hasta)
+    return finanzas.resumen(uow, inicio, fin)
+
+
+@protegido.put("/finanzas/{movimiento_id}", response_model=esquemas.MovimientoDineroOut)
+def guardar_movimiento(movimiento_id: uuid.UUID, datos: esquemas.MovimientoDineroIn, uow: UnidadDep, quien: UsuarioDep):
+    movimiento = MovimientoDinero(id=movimiento_id, **datos.model_dump())
+    return finanzas.guardar_movimiento(uow, quien, movimiento)
+
+
+@protegido.delete("/finanzas/{movimiento_id}", status_code=status.HTTP_204_NO_CONTENT)
+def borrar_movimiento(movimiento_id: uuid.UUID, uow: UnidadDep, quien: SoloAdmin):
+    finanzas.borrar_movimiento(uow, quien, movimiento_id, fechas.ahora_utc())

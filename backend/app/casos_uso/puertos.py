@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 from typing import Protocol
 
+from app.dominio.finanzas import CategoriaHuevo, MovimientoDinero
 from app.dominio.modelos import (
     Bodega,
     Etapa,
@@ -139,6 +140,21 @@ class RepoPesajes(Protocol):
     def quitar(self, pesaje_id: uuid.UUID) -> None: ...
 
 
+class RepoCategorias(Protocol):
+    def agregar(self, categoria: CategoriaHuevo) -> CategoriaHuevo: ...
+    def obtener(self, categoria_id: int) -> CategoriaHuevo | None: ...
+    def por_nombre(self, nombre: str) -> CategoriaHuevo | None: ...
+    def listar(self) -> list[CategoriaHuevo]: ...
+    def actualizar(self, categoria: CategoriaHuevo) -> CategoriaHuevo: ...
+
+
+class RepoDinero(Protocol):
+    def guardar(self, movimiento: MovimientoDinero) -> MovimientoDinero: ...
+    def obtener(self, movimiento_id: uuid.UUID) -> MovimientoDinero | None: ...
+    def eliminar(self, movimiento_id: uuid.UUID) -> None: ...
+    def entre(self, desde: date, hasta: date) -> list[MovimientoDinero]: ...
+
+
 class UnidadDeTrabajo(Protocol):
     galpones: RepoGalpones
     lineas: RepoLineas
@@ -156,5 +172,7 @@ class UnidadDeTrabajo(Protocol):
     plan: RepoPlan
     cumplimientos: RepoCumplimientos
     pesajes: RepoPesajes
+    categorias: RepoCategorias
+    dinero: RepoDinero
 
     def confirmar(self) -> None: ...
