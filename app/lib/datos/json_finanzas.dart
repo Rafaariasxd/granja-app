@@ -3,8 +3,12 @@ import 'json.dart';
 
 double _numero(Object? valor) => (valor as num).toDouble();
 
-CategoriaHuevo categoriaDesdeJson(Map<String, dynamic> c) =>
-    CategoriaHuevo(id: c['id'] as int, nombre: c['nombre'] as String, activa: c['activa'] as bool);
+CategoriaHuevo categoriaDesdeJson(Map<String, dynamic> c) => CategoriaHuevo(
+  id: c['id'] as int,
+  nombre: c['nombre'] as String,
+  activa: c['activa'] as bool,
+  orden: c['orden'] as int? ?? 0,
+);
 
 MovimientoDinero movimientoDesdeJson(Map<String, dynamic> m) => MovimientoDinero(
   id: m['id'] as String,

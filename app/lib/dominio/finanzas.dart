@@ -23,11 +23,12 @@ enum Rubro {
 }
 
 class CategoriaHuevo {
-  const CategoriaHuevo({required this.id, required this.nombre, required this.activa});
+  const CategoriaHuevo({required this.id, required this.nombre, required this.activa, this.orden = 0});
 
   final int id;
   final String nombre;
   final bool activa;
+  final int orden;
 }
 
 class MovimientoDinero {

@@ -212,8 +212,8 @@ class ApiGranja {
 
   Future<void> crearCategoriaHuevo(String nombre) => _mandar('POST', 'categorias-huevo', {'nombre': nombre});
 
-  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
-      _mandar('PATCH', 'categorias-huevo/$id', {'nombre': ?nombre, 'activa': ?activa});
+  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa, int? orden}) =>
+      _mandar('PATCH', 'categorias-huevo/$id', {'nombre': ?nombre, 'activa': ?activa, 'orden': ?orden});
 
   Future<String> _leerRuta(Uri url) async {
     final respuesta = await _enviar(() => _cliente.get(url, headers: _autorizacion()));

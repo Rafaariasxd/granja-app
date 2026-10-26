@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../datos/administracion.dart';
 import '../datos/api_granja.dart';
 import '../dominio/administracion.dart';
+import '../dominio/finanzas.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
 
@@ -83,6 +84,19 @@ class EstadoAdministracion extends ChangeNotifier {
 
   Future<String?> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
       _accion(() => _repositorio.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa));
+
+  Future<String?> moverCategoriaHuevo(List<CategoriaHuevo> categorias, int indice, int paso) {
+    final destino = indice + paso;
+    if (destino < 0 || destino >= categorias.length) return Future.value();
+    final nueva = [...categorias];
+    final movida = nueva.removeAt(indice);
+    nueva.insert(destino, movida);
+    return _accion(() async {
+      for (var i = 0; i < nueva.length; i++) {
+        if (nueva[i].orden != i + 1) await _repositorio.cambiarCategoriaHuevo(nueva[i].id, orden: i + 1);
+      }
+    });
+  }
 
   Future<String?> fijarPrecioHuevo(int categoriaId, {double? caja, double? carton, double? mayorista}) =>
       _accion(() => _repositorio.fijarPrecioHuevo(categoriaId, caja: caja, carton: carton, mayorista: mayorista));

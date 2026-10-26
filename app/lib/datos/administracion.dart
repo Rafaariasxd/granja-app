@@ -111,8 +111,8 @@ class RepositorioAdministracion {
 
   Future<void> crearCategoriaHuevo(String nombre) => _api.crearCategoriaHuevo(nombre);
 
-  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
-      _api.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa);
+  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa, int? orden}) =>
+      _api.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa, orden: orden);
 
   Future<void> fijarPrecioHuevo(int categoriaId, {double? caja, double? carton, double? mayorista}) =>
       _api.fijarPrecioHuevo(categoriaId, caja: caja, carton: carton, mayorista: mayorista);

@@ -138,9 +138,13 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
                       accion: 'Nueva categoría',
                       alPulsar: () => _abrir((_) => _HojaCategoriaNueva(estado: estado), 'Categoría creada'),
                     ),
-                    for (final c in catalogo.categoriasHuevo) ...[
+                    for (final (i, c) in catalogo.categoriasHuevo.indexed) ...[
                       _CategoriaFila(
                         categoria: c,
+                        alSubir: i == 0 ? null : () => estado.moverCategoriaHuevo(catalogo.categoriasHuevo, i, -1),
+                        alBajar: i == catalogo.categoriasHuevo.length - 1
+                            ? null
+                            : () => estado.moverCategoriaHuevo(catalogo.categoriasHuevo, i, 1),
                         precio: catalogo.precioDe(c.id),
                         alPrecio: () => _abrir(
                           (_) => _HojaPrecioHuevo(estado: estado, categoria: c, actual: catalogo.precioDe(c.id)),
@@ -394,6 +398,8 @@ class _RazaFila extends StatelessWidget {
 class _CategoriaFila extends StatelessWidget {
   const _CategoriaFila({
     required this.categoria,
+    required this.alSubir,
+    required this.alBajar,
     required this.precio,
     required this.alPrecio,
     required this.alNombre,
@@ -401,6 +407,8 @@ class _CategoriaFila extends StatelessWidget {
   });
 
   final CategoriaHuevo categoria;
+  final VoidCallback? alSubir;
+  final VoidCallback? alBajar;
   final PrecioHuevo? precio;
   final VoidCallback alPrecio;
   final VoidCallback alNombre;
@@ -432,6 +440,16 @@ class _CategoriaFila extends StatelessWidget {
                   categoria.nombre,
                   style: textos.titleLarge?.copyWith(color: categoria.activa ? Colores.tinta : Colores.tintaSuave),
                 ),
+              ),
+              IconButton(
+                tooltip: 'Subir ${categoria.nombre}',
+                onPressed: alSubir,
+                icon: const Icon(Icons.arrow_upward),
+              ),
+              IconButton(
+                tooltip: 'Bajar ${categoria.nombre}',
+                onPressed: alBajar,
+                icon: const Icon(Icons.arrow_downward),
               ),
               IconButton(
                 tooltip: 'Cambiar el nombre de ${categoria.nombre}',
