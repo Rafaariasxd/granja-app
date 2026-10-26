@@ -119,7 +119,11 @@ class GranjaApp extends StatelessWidget {
   }
 
   Future<void> _registrar(BuildContext context, ResumenGalpon galpon) async {
-    final formulario = FormularioRegistro(galpon: galpon, fecha: inicio.hoy);
+    final formulario = FormularioRegistro(
+      galpon: galpon,
+      fecha: inicio.hoy,
+      kgPorBulto: bodega.kgPorBultoDelGalpon(galpon.galponId, galpon.etapa),
+    );
     final guardado = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => RegistroPantalla(formulario: formulario, envios: envios),
@@ -145,7 +149,12 @@ class GranjaApp extends StatelessWidget {
     }
     final hallado = encontrado;
     final puedeBorrar = (sesion.sesion?.esAdministrador ?? false) && !hallado.sinEnviar;
-    final formulario = FormularioRegistro(galpon: galpon, fecha: inicio.hoy, anterior: hallado.registro);
+    final formulario = FormularioRegistro(
+      galpon: galpon,
+      fecha: inicio.hoy,
+      anterior: hallado.registro,
+      kgPorBulto: bodega.kgPorBultoDelGalpon(galpon.galponId, galpon.etapa),
+    );
     final guardado = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => RegistroPantalla(

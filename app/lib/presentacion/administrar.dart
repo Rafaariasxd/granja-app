@@ -584,12 +584,14 @@ class _HojaInsumoNuevoState extends State<_HojaInsumoNuevo> with _Guardado {
   }
 
   bool get _llevaEtapa => _tipo != TipoInsumo.materiaPrima;
-  bool get _llevaBulto => _tipo != TipoInsumo.alimentoPreparado;
+  bool get _bultoObligatorio => _tipo != TipoInsumo.alimentoPreparado;
 
   bool get _valido {
     if (_nombre.text.trim().isEmpty) return false;
     if (_llevaEtapa && _etapa == null) return false;
-    if (_llevaBulto && (leerNumero(_porBulto.text) ?? 0) <= 0) return false;
+    final kilosPorBulto = leerNumero(_porBulto.text);
+    if (_bultoObligatorio && (kilosPorBulto ?? 0) <= 0) return false;
+    if (_porBulto.text.trim().isNotEmpty && (kilosPorBulto ?? 0) <= 0) return false;
     return true;
   }
 
@@ -621,16 +623,14 @@ class _HojaInsumoNuevoState extends State<_HojaInsumoNuevo> with _Guardado {
             alElegir: (e) => setState(() => _etapa = e),
           ),
         ],
-        if (_llevaBulto) ...[
-          const SizedBox(height: 16),
-          _Campo(
-            controlador: _porBulto,
-            etiqueta: 'Kilos por bulto',
-            sufijo: 'kg',
-            numerico: true,
-            alCambiar: () => setState(() {}),
-          ),
-        ],
+        const SizedBox(height: 16),
+        _Campo(
+          controlador: _porBulto,
+          etiqueta: _bultoObligatorio ? 'Kilos por bulto' : 'Kilos por bulto (si lo manejan en bultos)',
+          sufijo: 'kg',
+          numerico: true,
+          alCambiar: () => setState(() {}),
+        ),
         _Error(error),
         const SizedBox(height: 16),
         FilledButton(
@@ -640,7 +640,7 @@ class _HojaInsumoNuevoState extends State<_HojaInsumoNuevo> with _Guardado {
                     nombre: _nombre.text.trim(),
                     tipo: _tipo,
                     etapa: _llevaEtapa ? _etapa : null,
-                    kgPorBulto: _llevaBulto ? leerNumero(_porBulto.text) : null,
+                    kgPorBulto: leerNumero(_porBulto.text),
                   ),
                 )
               : null,

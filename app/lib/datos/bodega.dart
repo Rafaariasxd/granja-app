@@ -39,6 +39,14 @@ class BodegaActual {
   final bool copiaLocal;
 }
 
+class Cantidad {
+  const Cantidad.bultos(this.valor) : enBultos = true;
+  const Cantidad.kilos(this.valor) : enBultos = false;
+
+  final double valor;
+  final bool enBultos;
+}
+
 class ResultadoOperaciones {
   const ResultadoOperaciones({required this.quedanPendientes, this.sesionVencida = false});
 
@@ -102,6 +110,29 @@ class RepositorioBodega {
     ),
   );
 
+  Future<void> guardarGasto(Insumo insumo, int bodegaId, Cantidad cantidad, String descripcion, DateTime ahora) =>
+      _operaciones.guardar(
+        OperacionBodega(
+          id: nuevoIdRegistro(),
+          tipo: TipoOperacion.gasto,
+          fecha: fechaEnGranja(ahora),
+          insumoId: insumo.id,
+          bodegaId: bodegaId,
+          bultos: cantidad.enBultos ? cantidad.valor : null,
+          kg: cantidad.enBultos ? null : cantidad.valor,
+          descripcion: descripcion,
+          guardadoEn: ahora,
+        ),
+      );
+
+  Future<void> contar(Insumo insumo, int bodegaId, Cantidad cantidad) => _api.ajustarStock(
+    insumo.id,
+    bodegaId: bodegaId,
+    bultos: cantidad.enBultos ? cantidad.valor : null,
+    kg: cantidad.enBultos ? null : cantidad.valor,
+    nota: 'Conteo en la bodega',
+  );
+
   Future<List<OperacionBodega>> sinResolver() => _operaciones.sinResolver();
 
   Future<void> descartar(String id) => _operaciones.quitar(id);
@@ -134,6 +165,15 @@ class RepositorioBodega {
       operacionId: operacion.id,
       bodegaId: operacion.bodegaId,
       bultos: operacion.bultos!,
+      fecha: fechaIso(operacion.fecha),
+    ),
+    TipoOperacion.gasto => _api.registrarGasto(
+      operacion.insumoId,
+      operacionId: operacion.id,
+      bodegaId: operacion.bodegaId,
+      bultos: operacion.bultos,
+      kg: operacion.kg,
+      nota: operacion.descripcion,
       fecha: fechaIso(operacion.fecha),
     ),
     TipoOperacion.preparacion => _api.prepararAlimento(

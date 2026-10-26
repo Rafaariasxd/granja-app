@@ -139,14 +139,14 @@ void main() {
     expect(montaje.cuerpos.single, {'nombre': 'Calcio', 'tipo': 'materia_prima', 'etapa': null, 'kg_por_bulto': 25.5});
   });
 
-  testWidgets('un alimento preparado pide la etapa y no los kilos del bulto', (tester) async {
+  testWidgets('un alimento preparado pide la etapa y el bulto es opcional', (tester) async {
     final montaje = Montaje();
     await abrir(tester, montaje);
 
     await pulsar(tester, find.text('Nuevo insumo'));
     await tester.enterText(find.widgetWithText(TextField, 'Nombre'), 'Mezcla levante');
     await pulsar(tester, find.widgetWithText(ChoiceChip, 'Alimento que preparamos'));
-    expect(find.widgetWithText(TextField, 'Kilos por bulto'), findsNothing);
+    expect(find.widgetWithText(TextField, 'Kilos por bulto (si lo manejan en bultos)'), findsOneWidget);
     expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Crear insumo')).onPressed, isNull);
 
     await pulsar(tester, find.widgetWithText(ChoiceChip, 'Levante'));
@@ -158,6 +158,21 @@ void main() {
       'etapa': 'levante',
       'kg_por_bulto': null,
     });
+  });
+
+  testWidgets('un alimento preparado puede llevar el peso del bulto', (tester) async {
+    final montaje = Montaje();
+    await abrir(tester, montaje);
+
+    await pulsar(tester, find.text('Nuevo insumo'));
+    await tester.enterText(find.widgetWithText(TextField, 'Nombre'), 'Mezcla levante');
+    await pulsar(tester, find.widgetWithText(ChoiceChip, 'Alimento que preparamos'));
+    await pulsar(tester, find.widgetWithText(ChoiceChip, 'Levante'));
+    await tester.enterText(find.widgetWithText(TextField, 'Kilos por bulto (si lo manejan en bultos)'), '40');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Crear insumo'));
+
+    expect((montaje.cuerpos.single! as Map)['kg_por_bulto'], 40);
   });
 
   testWidgets('la fórmula trae lo guardado y solo se guarda cuando suma 100', (tester) async {

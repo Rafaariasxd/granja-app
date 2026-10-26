@@ -7,7 +7,7 @@ import '../dominio/modelos.dart';
 import '../dominio/produccion.dart';
 
 class FormularioRegistro extends ChangeNotifier {
-  FormularioRegistro({required this.galpon, required this.fecha, RegistroDiario? anterior})
+  FormularioRegistro({required this.galpon, required this.fecha, RegistroDiario? anterior, this.kgPorBulto})
     : id = anterior?.id ?? nuevoIdRegistro(),
       _huevos = anterior?.huevosTotal ?? 0,
       _rotos = anterior?.huevosRotos ?? 0,
@@ -16,6 +16,7 @@ class FormularioRegistro extends ChangeNotifier {
 
   final ResumenGalpon galpon;
   final DateTime fecha;
+  final double? kgPorBulto;
   final String id;
   int _huevos;
   int _rotos;
@@ -26,6 +27,7 @@ class FormularioRegistro extends ChangeNotifier {
   int get rotos => _rotos;
   int get muertas => _muertas;
   double get alimentoKg => _alimentoKg;
+  double? get bultos => kgPorBulto == null ? null : _alimentoKg / kgPorBulto!;
 
   double get postura => posturaPct(_huevos, galpon.avesVivas);
 
@@ -43,6 +45,8 @@ class FormularioRegistro extends ChangeNotifier {
   void sumarMuertas(int cambio) => _cambiar(() => _muertas = max(_muertas + cambio, 0));
 
   void cambiarAlimento(double kg) => _cambiar(() => _alimentoKg = max(kg, 0));
+
+  void sumarMediosBultos(int cambio) => cambiarAlimento(_alimentoKg + cambio * 0.5 * kgPorBulto!);
 
   RegistroDiario aRegistro() {
     if (!esValido) throw StateError(errores.join(' '));

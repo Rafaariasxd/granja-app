@@ -98,6 +98,20 @@ class InventarioBodega {
   final List<CoberturaEtapa> etapas;
 
   List<Existencia> get urgentes => existencias.where((e) => e.nivel == Nivel.critico).toList();
+
+  double? kgPorBultoDe(int? insumoId) {
+    for (final e in existencias) {
+      if (e.insumo.id == insumoId) return e.insumo.kgPorBulto;
+    }
+    return null;
+  }
+
+  double? kgPorBultoEnUso(Etapa etapa) {
+    for (final c in etapas) {
+      if (c.etapa == etapa) return kgPorBultoDe(c.enUsoId);
+    }
+    return null;
+  }
 }
 
 class Inventario {
@@ -107,6 +121,14 @@ class Inventario {
   final List<MezclaPosible> mezclas;
 
   bool get vacio => bodegas.isEmpty;
+
+  double? kgPorBultoDelGalpon(int galponId, Etapa? etapa) {
+    if (etapa == null) return null;
+    for (final b in bodegas) {
+      if (b.galponIds.contains(galponId)) return b.kgPorBultoEnUso(etapa);
+    }
+    return null;
+  }
 
   List<InventarioBodega> get deAlimento => bodegas.where((b) => b.bodega.tipo == TipoBodega.alimento).toList();
 

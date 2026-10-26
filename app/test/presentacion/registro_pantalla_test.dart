@@ -28,7 +28,7 @@ const galpon = ResumenGalpon(
 final ahora = DateTime.utc(2026, 10, 21, 17);
 
 class Montaje {
-  Montaje({int estado = 200, this.borrar}) {
+  Montaje({int estado = 200, this.borrar, double? kgPorBulto}) {
     final cliente = MockClient((peticion) async {
       enviados.add(jsonDecode(peticion.body) as Map<String, dynamic>);
       return http.Response.bytes(utf8.encode('{}'), estado);
@@ -36,7 +36,7 @@ class Montaje {
     final almacen = AlmacenEnMemoria();
     final api = ApiGranja(Uri.parse('http://granja.test/'), cliente: cliente);
     envios = EstadoEnvios(Sincronizador(almacen, api), almacen);
-    formulario = FormularioRegistro(galpon: galpon, fecha: DateTime.utc(2026, 10, 21));
+    formulario = FormularioRegistro(galpon: galpon, fecha: DateTime.utc(2026, 10, 21), kgPorBulto: kgPorBulto);
   }
 
   final enviados = <Map<String, dynamic>>[];
@@ -112,6 +112,37 @@ void main() {
     expect(montaje.enviados.single['huevos_rotos'], 2);
     expect(montaje.enviados.single['mortalidad'], 1);
     expect(montaje.enviados.single['alimento_kg'], 180);
+  });
+
+  testWidgets('si se conoce el bulto, el alimento se da en bultos y se manda en kilos', (tester) async {
+    final montaje = Montaje(kgPorBulto: 40);
+    await abrir(tester, montaje);
+
+    tester.view.physicalSize = const Size(1170, 3600);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '1405');
+    expect(find.text('bultos gastados'), findsOneWidget);
+    for (var i = 0; i < 7; i++) {
+      await tester.tap(find.byTooltip('Medio bulto más'));
+    }
+    await tester.pump();
+    expect(find.text('3,5'), findsOneWidget);
+    expect(find.text('bultos gastados · 140 kg'), findsOneWidget);
+    await tester.tap(find.byTooltip('Medio bulto menos'));
+    await tester.pump();
+    expect(find.text('3'), findsAtLeastNWidgets(1));
+
+    await tester.tap(find.byTooltip('Medio bulto más'));
+    await guardar(tester);
+
+    expect(montaje.enviados.single['alimento_kg'], 140);
+  });
+
+  testWidgets('sin saber cuánto pesa el bulto el alimento sigue en kilos', (tester) async {
+    await abrir(tester, Montaje());
+
+    expect(find.byTooltip('Medio bulto más'), findsNothing);
+    expect(find.text('kg'), findsOneWidget);
   });
 
   testWidgets('sin señal se guarda en el teléfono y queda pendiente', (tester) async {

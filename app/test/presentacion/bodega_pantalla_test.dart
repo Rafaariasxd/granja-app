@@ -201,7 +201,7 @@ void main() {
     expect(find.text('Levante'), findsOneWidget);
     expect(find.text('10 días'), findsAtLeastNWidgets(1));
     expect(find.text('Alimenta 1 galpón.'), findsOneWidget);
-    expect(find.text('Hay 400 kg de alimento · se gastan 40 kg al día'), findsOneWidget);
+    expect(find.text('Hay 10 bultos (400 kg) de alimento · se gastan 1 bulto al día'), findsOneWidget);
     expect(find.text('Italcol levante'), findsOneWidget);
   });
 
@@ -229,6 +229,8 @@ void main() {
     await elegir(tester, 'Bodega de materia prima');
 
     await tester.tap(find.text('Maíz'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Llegó (compra)'));
     await tester.pumpAndSettle();
     expect(find.text('Llegó Maíz'), findsOneWidget);
     expect(find.text('A Bodega de materia prima'), findsOneWidget);
@@ -261,6 +263,8 @@ void main() {
 
     await tester.tap(find.text('Italcol levante'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Llegó (compra)'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Guardar compra'));
     await tester.pumpAndSettle();
 
@@ -274,7 +278,9 @@ void main() {
     await tester.tap(find.text('Mezcla ponedora'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Guardar compra'), findsNothing);
+    expect(find.text('Llegó (compra)'), findsNothing);
+    expect(find.text('Gasté'), findsOneWidget);
+    expect(find.text('Conté lo que hay'), findsOneWidget);
   });
 
   testWidgets('no se puede bajar de medio bulto', (tester) async {
@@ -282,11 +288,142 @@ void main() {
     await elegir(tester, 'Bodega de materia prima');
     await tester.tap(find.text('Maíz'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Llegó (compra)'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Medio bulto menos'));
     await tester.pump();
 
     expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.remove)).onPressed, isNull);
+  });
+
+  testWidgets('el gasto se da en bultos y manda los bultos con su identificador', (tester) async {
+    final montaje = Montaje();
+    await abrir(tester, montaje);
+    await elegir(tester, 'Bodega 2');
+
+    await tester.tap(find.text('Italcol levante'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gasté'));
+    await tester.pumpAndSettle();
+    expect(find.text('Gasté Italcol levante'), findsOneWidget);
+    expect(find.text('De Bodega 2. Hay 10 bultos.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Medio bulto más'));
+    await tester.tap(find.byTooltip('Medio bulto más'));
+    await tester.pump();
+    expect(find.text('2 bultos'), findsOneWidget);
+    expect(find.text('Son 80 kg'), findsOneWidget);
+
+    await tester.tap(find.text('Guardar lo gastado'));
+    await tester.pumpAndSettle();
+
+    expect(montaje.peticiones, contains('POST /insumos/4/gastos'));
+    expect(sinOperacion(montaje.cuerpos.single), {
+      'bodega_id': 2,
+      'bultos': 2,
+      'nota': '2 bultos de Italcol levante',
+      'fecha': '2026-10-25',
+    });
+    expect(montaje.cuerpos.single['operacion_id'], isA<String>());
+    expect(find.text('Gasto guardado'), findsOneWidget);
+  });
+
+  testWidgets('sin señal el gasto queda guardado y se envía después', (tester) async {
+    var hayRed = true;
+    final montaje = Montaje(
+      servidor: (p) {
+        if (!hayRed) throw http.ClientException('sin red');
+        return p.method == 'GET'
+            ? http.Response.bytes(utf8.encode(jsonEncode(tablero)), 200)
+            : http.Response('{}', 201);
+      },
+    );
+    await abrir(tester, montaje);
+    await elegir(tester, 'Bodega 2');
+    await tester.tap(find.text('Italcol levante'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gasté'));
+    await tester.pumpAndSettle();
+    hayRed = false;
+    await tester.tap(find.text('Guardar lo gastado'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gasto guardado. Se envía cuando haya señal'), findsOneWidget);
+    expect(find.text('1 cosa sin enviar'), findsOneWidget);
+    expect((await montaje.operaciones.sinResolver()).single.descripcion, '1 bulto de Italcol levante');
+
+    hayRed = true;
+    await montaje.estado.cargar();
+    await tester.pumpAndSettle();
+    expect(find.text('1 cosa sin enviar'), findsNothing);
+    expect(montaje.peticiones, contains('POST /insumos/4/gastos'));
+  });
+
+  testWidgets('lo que no tiene bulto se gasta en kilos', (tester) async {
+    final montaje = Montaje();
+    await abrir(tester, montaje);
+
+    await tester.tap(find.text('Mezcla ponedora'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gasté'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '100');
+    await tester.pump();
+    await tester.tap(find.text('Guardar lo gastado'));
+    await tester.pumpAndSettle();
+
+    expect(sinOperacion(montaje.cuerpos.single), {
+      'bodega_id': 1,
+      'kg': 100,
+      'nota': '100 kg de Mezcla ponedora',
+      'fecha': '2026-10-25',
+    });
+  });
+
+  testWidgets('contar deja el número de bultos que se contó', (tester) async {
+    final montaje = Montaje();
+    await abrir(tester, montaje);
+    await elegir(tester, 'Bodega 2');
+
+    await tester.tap(find.text('Italcol levante'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Conté lo que hay'));
+    await tester.pumpAndSettle();
+    expect(find.text('En Bodega 2. La app dice que hay 10 bultos.'), findsOneWidget);
+    expect(find.text('10 bultos'), findsOneWidget);
+    await tester.tap(find.byTooltip('Medio bulto menos'));
+    await tester.pump();
+    expect(find.text('9 bultos y medio'), findsOneWidget);
+
+    await tester.tap(find.text('Dejar este conteo'));
+    await tester.pumpAndSettle();
+
+    expect(montaje.peticiones, contains('POST /insumos/4/ajuste'));
+    expect(montaje.cuerpos.single, {'bodega_id': 2, 'bultos_reales': 9.5, 'nota': 'Conteo en la bodega'});
+    expect(find.text('Conteo guardado'), findsOneWidget);
+    expect(montaje.peticiones.where((p) => p == 'GET /inventario').length, 2);
+  });
+
+  testWidgets('contar sin señal avisa que necesita internet y no cierra', (tester) async {
+    var hayRed = true;
+    final montaje = Montaje(
+      servidor: (p) {
+        if (p.method == 'GET' && hayRed) return http.Response.bytes(utf8.encode(jsonEncode(tablero)), 200);
+        throw http.ClientException('sin red');
+      },
+    );
+    await abrir(tester, montaje);
+    await elegir(tester, 'Bodega 2');
+    await tester.tap(find.text('Italcol levante'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Conté lo que hay'));
+    await tester.pumpAndSettle();
+    hayRed = false;
+    await tester.tap(find.text('Dejar este conteo'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('contar necesita internet'), findsOneWidget);
+    expect(find.text('Dejar este conteo'), findsOneWidget);
   });
 
   testWidgets('preparar manda los kilos, de dónde sale y a qué bodega va', (tester) async {
@@ -359,6 +496,8 @@ void main() {
     await abrir(tester, montaje);
     await elegir(tester, 'Bodega de materia prima');
     await tester.tap(find.text('Maíz'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Llegó (compra)'));
     await tester.pumpAndSettle();
     hayRed = false;
 

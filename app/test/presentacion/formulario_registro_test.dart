@@ -35,6 +35,24 @@ void main() {
     expect(formulario.postura, 87.2);
   });
 
+  test('con el peso del bulto, el alimento sube de medio en medio bulto y se guarda en kilos', () {
+    final formulario = FormularioRegistro(galpon: galpon, fecha: hoy, kgPorBulto: 40)
+      ..sumarMediosBultos(1)
+      ..sumarMediosBultos(1)
+      ..sumarMediosBultos(1);
+    expect(formulario.bultos, 1.5);
+    expect(formulario.alimentoKg, 60);
+    expect(formulario.aRegistro().alimentoKg, 60);
+    formulario.sumarMediosBultos(-10);
+    expect(formulario.alimentoKg, 0);
+  });
+
+  test('al corregir, el alimento de antes se ve en bultos', () {
+    final anterior = RegistroDiario(id: 'x', galponId: 3, fecha: hoy, huevosTotal: 10, alimentoKg: 140);
+    expect(FormularioRegistro(galpon: galpon, fecha: hoy, anterior: anterior, kgPorBulto: 40).bultos, 3.5);
+    expect(FormularioRegistro(galpon: galpon, fecha: hoy, anterior: anterior).bultos, isNull);
+  });
+
   test('los contadores no bajan de cero', () {
     final formulario = FormularioRegistro(galpon: galpon, fecha: hoy)
       ..sumarRotos(-1)
