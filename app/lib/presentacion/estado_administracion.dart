@@ -79,6 +79,11 @@ class EstadoAdministracion extends ChangeNotifier {
     }
   }
 
+  Future<String?> crearCategoriaHuevo(String nombre) => _accion(() => _repositorio.crearCategoriaHuevo(nombre));
+
+  Future<String?> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
+      _accion(() => _repositorio.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa));
+
   Future<String?> crearRaza(String nombre, String? plantilla) =>
       _accion(() => _repositorio.crearRaza(nombre, plantilla));
 

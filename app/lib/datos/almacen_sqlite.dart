@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import '../dominio/modelos.dart';
 import 'bodega.dart';
 import 'cola.dart';
+import 'finanzas.dart';
 import 'json.dart';
 import 'operaciones.dart';
 import 'resumen.dart';
@@ -111,6 +112,31 @@ class AlmacenSanidadSqlite implements AlmacenSanidad {
     final filas = await _db.query('sanidad', where: 'id = ?', whereArgs: [1]);
     if (filas.isEmpty) return null;
     return SanidadGuardada(
+      actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
+      datos: filas.single['datos']! as String,
+    );
+  }
+}
+
+class AlmacenFinanzasSqlite implements AlmacenFinanzas {
+  AlmacenFinanzasSqlite(this._db);
+
+  final Database _db;
+
+  @override
+  Future<void> guardar(FinanzasGuardadas finanzas) async {
+    await _db.insert('finanzas', {
+      'id': 1,
+      'actualizado_en': finanzas.actualizadoEn.toUtc().toIso8601String(),
+      'datos': finanzas.datos,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<FinanzasGuardadas?> ultima() async {
+    final filas = await _db.query('finanzas', where: 'id = ?', whereArgs: [1]);
+    if (filas.isEmpty) return null;
+    return FinanzasGuardadas(
       actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
       datos: filas.single['datos']! as String,
     );

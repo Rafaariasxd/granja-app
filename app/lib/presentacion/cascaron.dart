@@ -8,8 +8,10 @@ class Cascaron extends StatefulWidget {
     required this.granja,
     required this.bodega,
     required this.sanidad,
+    required this.dinero,
     this.alAbrirBodega,
     this.alAbrirSanidad,
+    this.alAbrirDinero,
     this.administrar,
     this.alAbrirAdministrar,
   });
@@ -17,8 +19,10 @@ class Cascaron extends StatefulWidget {
   final Widget granja;
   final Widget bodega;
   final Widget sanidad;
+  final Widget dinero;
   final VoidCallback? alAbrirBodega;
   final VoidCallback? alAbrirSanidad;
+  final VoidCallback? alAbrirDinero;
   final Widget? administrar;
   final VoidCallback? alAbrirAdministrar;
 
@@ -34,7 +38,13 @@ class _CascaronState extends State<Cascaron> {
     return Scaffold(
       body: IndexedStack(
         index: _actual,
-        children: [widget.granja, widget.bodega, widget.sanidad, if (widget.administrar != null) widget.administrar!],
+        children: [
+          widget.granja,
+          widget.bodega,
+          widget.sanidad,
+          widget.dinero,
+          if (widget.administrar != null) widget.administrar!,
+        ],
       ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
@@ -61,7 +71,8 @@ class _CascaronState extends State<Cascaron> {
             setState(() => _actual = indice);
             if (indice == 1) widget.alAbrirBodega?.call();
             if (indice == 2) widget.alAbrirSanidad?.call();
-            if (indice == 3) widget.alAbrirAdministrar?.call();
+            if (indice == 3) widget.alAbrirDinero?.call();
+            if (indice == 4) widget.alAbrirAdministrar?.call();
           },
           destinations: [
             const NavigationDestination(
@@ -78,6 +89,11 @@ class _CascaronState extends State<Cascaron> {
               icon: Icon(Icons.health_and_safety_outlined),
               selectedIcon: Icon(Icons.health_and_safety),
               label: 'Sanidad',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.payments_outlined),
+              selectedIcon: Icon(Icons.payments),
+              label: 'Dinero',
             ),
             if (widget.administrar != null)
               const NavigationDestination(

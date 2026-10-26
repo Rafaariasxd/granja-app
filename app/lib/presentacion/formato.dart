@@ -15,6 +15,8 @@ String decimal(double valor) {
   return (texto.endsWith('.0') ? texto.substring(0, texto.length - 2) : texto).replaceAll('.', ',');
 }
 
+String pesos(double valor) => '\$ ${miles(valor.round())}';
+
 String kilos(double kg) => '${miles(kg.round())} kg';
 
 String cantidadTexto(double kg, double? kgPorBulto) => kgPorBulto == null ? kilos(kg) : bultosTexto(kg / kgPorBulto);
