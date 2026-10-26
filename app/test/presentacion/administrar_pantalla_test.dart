@@ -48,6 +48,13 @@ class Montaje {
           {'id': 2, 'nombre': 'Lohmann Brown', 'revisada': true},
         ]),
         '/lineas/plantillas' => _json(['Hy-Line Brown', 'Lohmann Brown']),
+        '/huevos' => _json({
+          'existencias': <Object?>[],
+          'precios': [
+            {'categoria_id': 1, 'precio_caja': 120000.0, 'precio_carton': 12000.0, 'precio_mayorista': null},
+          ],
+          'abiertas': <Object?>[],
+        }),
         '/categorias-huevo' => _json([
           {'id': 1, 'nombre': 'AA', 'activa': true},
           {'id': 2, 'nombre': 'Roto', 'activa': false},
@@ -409,6 +416,27 @@ void main() {
     await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
     expect(montaje.envios.last, 'PATCH /categorias-huevo/1');
     expect(montaje.cuerpos.last, {'nombre': 'Extra'});
+  });
+
+  testWidgets('los precios del huevo se ven en cada categoría y se cambian', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    expect(find.text('caja \$ 120.000 · cartón \$ 12.000'), findsOneWidget);
+    expect(find.text('Sin precios todavía'), findsOneWidget);
+    await pulsar(tester, find.widgetWithText(OutlinedButton, 'Precios').first);
+    expect(find.text('A clientes, cada cartón sale a \$ 10.000'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Precio de la caja al mayorista'), '108000');
+    await tester.pump();
+    await pulsar(tester, find.text('Guardar precios'));
+
+    expect(montaje.envios, ['PUT /huevos/precios/1']);
+    expect(montaje.cuerpos.single, {
+      'categoria_id': 1,
+      'precio_caja': 120000,
+      'precio_carton': 12000,
+      'precio_mayorista': 108000,
+    });
   });
 
   testWidgets('una categoría se apaga y se prende con el interruptor', (tester) async {

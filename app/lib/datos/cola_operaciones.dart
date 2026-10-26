@@ -3,6 +3,7 @@ import 'api_granja.dart';
 import 'cola.dart';
 import 'json.dart';
 import 'json_finanzas.dart';
+import 'json_huevos.dart';
 import 'operaciones.dart';
 
 class ResultadoOperaciones {
@@ -96,6 +97,37 @@ class ColaDeOperaciones {
         ),
       ),
     ),
+    TipoOperacion.huevoIngreso => _api.ingresarHuevo(
+      operacion.id,
+      operacion.categoriaId!,
+      operacion.huevos!,
+      fechaIso(operacion.fecha),
+    ),
+    TipoOperacion.huevoBaja => _api.bajaDeHuevo(
+      operacion.id,
+      operacion.categoriaId!,
+      operacion.huevos!,
+      operacion.nota ?? '',
+      fechaIso(operacion.fecha),
+    ),
+    TipoOperacion.huevoVenta => _api.venderHuevo(operacion.id, {
+      'fecha': fechaIso(operacion.fecha),
+      'tipo_venta': operacion.tipoVenta,
+      'cliente': operacion.contraparte ?? '',
+      'lineas': lineasAJson(operacion.lineas!),
+      'valor_cobrado': operacion.valor,
+    }),
+    TipoOperacion.huevoSalida => _api.abrirSalida(operacion.id, {
+      'fecha': fechaIso(operacion.fecha),
+      'tipo_venta': operacion.tipoVenta,
+      'cliente': operacion.contraparte ?? '',
+      'lineas': lineasAJson(operacion.lineas!),
+    }),
+    TipoOperacion.huevoCierre => _api.cerrarSalida(operacion.referencia!, {
+      'fecha': fechaIso(operacion.fecha),
+      'vendidos': operacion.lineas == null ? null : lineasAJson(operacion.lineas!),
+      'valor_cobrado': operacion.valor,
+    }),
     TipoOperacion.pesaje => _api.registrarPesaje(
       operacion.loteId!,
       pesajeId: operacion.id,

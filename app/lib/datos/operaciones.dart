@@ -1,11 +1,30 @@
 import 'cola.dart';
 import 'json.dart';
 
-enum TipoOperacion { compra, preparacion, gasto, aplicacion, pesaje, dinero }
+enum TipoOperacion {
+  compra,
+  preparacion,
+  gasto,
+  aplicacion,
+  pesaje,
+  dinero,
+  huevoIngreso,
+  huevoBaja,
+  huevoVenta,
+  huevoSalida,
+  huevoCierre,
+}
 
 const tiposDeBodega = {TipoOperacion.compra, TipoOperacion.preparacion, TipoOperacion.gasto};
 const tiposDeSanidad = {TipoOperacion.aplicacion, TipoOperacion.pesaje};
 const tiposDeDinero = {TipoOperacion.dinero};
+const tiposDeHuevo = {
+  TipoOperacion.huevoIngreso,
+  TipoOperacion.huevoBaja,
+  TipoOperacion.huevoVenta,
+  TipoOperacion.huevoSalida,
+  TipoOperacion.huevoCierre,
+};
 
 class OperacionBodega {
   const OperacionBodega({
@@ -29,6 +48,9 @@ class OperacionBodega {
     this.huevos,
     this.contraparte,
     this.nota,
+    this.lineas,
+    this.tipoVenta,
+    this.referencia,
     this.estado = EstadoEnvio.pendiente,
     this.mensaje,
     this.intentos = 0,
@@ -52,6 +74,9 @@ class OperacionBodega {
   final int? huevos;
   final String? contraparte;
   final String? nota;
+  final Map<int, int>? lineas;
+  final String? tipoVenta;
+  final String? referencia;
   final String descripcion;
   final DateTime guardadoEn;
   final EstadoEnvio estado;
@@ -77,6 +102,9 @@ class OperacionBodega {
     huevos: huevos,
     contraparte: contraparte,
     nota: nota,
+    lineas: lineas,
+    tipoVenta: tipoVenta,
+    referencia: referencia,
     descripcion: descripcion,
     guardadoEn: guardadoEn,
     estado: estado,
@@ -103,6 +131,9 @@ class OperacionBodega {
     'huevos': huevos,
     'contraparte': contraparte,
     'nota': nota,
+    'lineas': lineas?.map((categoria, huevos) => MapEntry('$categoria', huevos)),
+    'tipo_venta': tipoVenta,
+    'referencia': referencia,
     'descripcion': descripcion,
     'guardado_en': guardadoEn.toUtc().toIso8601String(),
     'estado': estado.name,
@@ -129,6 +160,9 @@ class OperacionBodega {
     huevos: mapa['huevos'] as int?,
     contraparte: mapa['contraparte'] as String?,
     nota: mapa['nota'] as String?,
+    lineas: (mapa['lineas'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(int.parse(k), v as int)),
+    tipoVenta: mapa['tipo_venta'] as String?,
+    referencia: mapa['referencia'] as String?,
     descripcion: mapa['descripcion']! as String,
     guardadoEn: DateTime.parse(mapa['guardado_en']! as String),
     estado: EstadoEnvio.values.byName(mapa['estado']! as String),
