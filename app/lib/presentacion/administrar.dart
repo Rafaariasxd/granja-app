@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../dominio/administracion.dart';
+import '../dominio/finanzas.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
 import '../dominio/sanidad.dart';
@@ -72,7 +73,7 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
                   Text('Administrar', style: textos.headlineMedium),
                   const SizedBox(height: 4),
                   Text(
-                    'Bodegas, insumos, fórmulas y razas',
+                    'Bodegas, insumos, razas y categorías',
                     style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave),
                   ),
                   const SizedBox(height: 16),
@@ -130,6 +131,22 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
                       const SizedBox(height: 10),
                     ],
                     if (catalogo.razas.isEmpty) const _Aviso(texto: 'Todavía no hay razas.'),
+                    const SizedBox(height: 14),
+                    _Titulo(
+                      texto: 'Categorías de huevo',
+                      accion: 'Nueva categoría',
+                      alPulsar: () => _abrir((_) => _HojaCategoriaNueva(estado: estado), 'Categoría creada'),
+                    ),
+                    for (final c in catalogo.categoriasHuevo) ...[
+                      _CategoriaFila(
+                        categoria: c,
+                        alNombre: () =>
+                            _abrir((_) => _HojaCategoriaNombre(estado: estado, categoria: c), 'Nombre guardado'),
+                        alActivar: (activa) => estado.cambiarCategoriaHuevo(c.id, activa: activa),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    if (catalogo.categoriasHuevo.isEmpty) const _Aviso(texto: 'Todavía no hay categorías.'),
                   ],
                 ],
               ),
@@ -362,6 +379,37 @@ class _RazaFila extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoriaFila extends StatelessWidget {
+  const _CategoriaFila({required this.categoria, required this.alNombre, required this.alActivar});
+
+  final CategoriaHuevo categoria;
+  final VoidCallback alNombre;
+  final void Function(bool activa) alActivar;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return _Tarjeta(
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              categoria.nombre,
+              style: textos.titleLarge?.copyWith(color: categoria.activa ? Colores.tinta : Colores.tintaSuave),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Cambiar el nombre de ${categoria.nombre}',
+            onPressed: alNombre,
+            icon: const Icon(Icons.edit_outlined),
+          ),
+          Switch(value: categoria.activa, onChanged: alActivar, activeThumbColor: Colores.monte),
         ],
       ),
     );
@@ -1234,6 +1282,82 @@ class _HojaCurvaState extends State<_HojaCurva> with _Guardado {
           const SizedBox(height: 16),
           FilledButton(onPressed: guardando ? null : () => guardar(_enviar), child: const Text('Guardar')),
         ],
+      ],
+    );
+  }
+}
+
+class _HojaCategoriaNueva extends StatefulWidget {
+  const _HojaCategoriaNueva({required this.estado});
+
+  final EstadoAdministracion estado;
+
+  @override
+  State<_HojaCategoriaNueva> createState() => _HojaCategoriaNuevaState();
+}
+
+class _HojaCategoriaNuevaState extends State<_HojaCategoriaNueva> with _Guardado {
+  final _nombre = TextEditingController();
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Hoja(
+      titulo: 'Nueva categoría de huevo',
+      children: [
+        _Campo(controlador: _nombre, etiqueta: 'Nombre', autofoco: true, alCambiar: () => setState(() {})),
+        _Error(error),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _nombre.text.trim().isNotEmpty && !guardando
+              ? () => guardar(() => widget.estado.crearCategoriaHuevo(_nombre.text.trim()))
+              : null,
+          child: const Text('Crear categoría'),
+        ),
+      ],
+    );
+  }
+}
+
+class _HojaCategoriaNombre extends StatefulWidget {
+  const _HojaCategoriaNombre({required this.estado, required this.categoria});
+
+  final EstadoAdministracion estado;
+  final CategoriaHuevo categoria;
+
+  @override
+  State<_HojaCategoriaNombre> createState() => _HojaCategoriaNombreState();
+}
+
+class _HojaCategoriaNombreState extends State<_HojaCategoriaNombre> with _Guardado {
+  late final _nombre = TextEditingController(text: widget.categoria.nombre);
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Hoja(
+      titulo: 'Nombre de la categoría',
+      children: [
+        _Campo(controlador: _nombre, etiqueta: 'Nombre', autofoco: true, alCambiar: () => setState(() {})),
+        _Error(error),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _nombre.text.trim().isNotEmpty && !guardando
+              ? () =>
+                    guardar(() => widget.estado.cambiarCategoriaHuevo(widget.categoria.id, nombre: _nombre.text.trim()))
+              : null,
+          child: const Text('Guardar'),
+        ),
       ],
     );
   }

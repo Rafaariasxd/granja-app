@@ -1,10 +1,11 @@
 import 'cola.dart';
 import 'json.dart';
 
-enum TipoOperacion { compra, preparacion, gasto, aplicacion, pesaje }
+enum TipoOperacion { compra, preparacion, gasto, aplicacion, pesaje, dinero }
 
 const tiposDeBodega = {TipoOperacion.compra, TipoOperacion.preparacion, TipoOperacion.gasto};
 const tiposDeSanidad = {TipoOperacion.aplicacion, TipoOperacion.pesaje};
+const tiposDeDinero = {TipoOperacion.dinero};
 
 class OperacionBodega {
   const OperacionBodega({
@@ -22,6 +23,12 @@ class OperacionBodega {
     this.tareaId,
     this.pesoG,
     this.aves,
+    this.rubro,
+    this.valor,
+    this.categoriaId,
+    this.huevos,
+    this.contraparte,
+    this.nota,
     this.estado = EstadoEnvio.pendiente,
     this.mensaje,
     this.intentos = 0,
@@ -39,6 +46,12 @@ class OperacionBodega {
   final int? tareaId;
   final double? pesoG;
   final int? aves;
+  final String? rubro;
+  final double? valor;
+  final int? categoriaId;
+  final int? huevos;
+  final String? contraparte;
+  final String? nota;
   final String descripcion;
   final DateTime guardadoEn;
   final EstadoEnvio estado;
@@ -58,6 +71,12 @@ class OperacionBodega {
     tareaId: tareaId,
     pesoG: pesoG,
     aves: aves,
+    rubro: rubro,
+    valor: valor,
+    categoriaId: categoriaId,
+    huevos: huevos,
+    contraparte: contraparte,
+    nota: nota,
     descripcion: descripcion,
     guardadoEn: guardadoEn,
     estado: estado,
@@ -78,6 +97,12 @@ class OperacionBodega {
     'tarea_id': tareaId,
     'peso_g': pesoG,
     'aves': aves,
+    'rubro': rubro,
+    'valor': valor,
+    'categoria_id': categoriaId,
+    'huevos': huevos,
+    'contraparte': contraparte,
+    'nota': nota,
     'descripcion': descripcion,
     'guardado_en': guardadoEn.toUtc().toIso8601String(),
     'estado': estado.name,
@@ -98,6 +123,12 @@ class OperacionBodega {
     tareaId: mapa['tarea_id'] as int?,
     pesoG: (mapa['peso_g'] as num?)?.toDouble(),
     aves: mapa['aves'] as int?,
+    rubro: mapa['rubro'] as String?,
+    valor: (mapa['valor'] as num?)?.toDouble(),
+    categoriaId: mapa['categoria_id'] as int?,
+    huevos: mapa['huevos'] as int?,
+    contraparte: mapa['contraparte'] as String?,
+    nota: mapa['nota'] as String?,
     descripcion: mapa['descripcion']! as String,
     guardadoEn: DateTime.parse(mapa['guardado_en']! as String),
     estado: EstadoEnvio.values.byName(mapa['estado']! as String),

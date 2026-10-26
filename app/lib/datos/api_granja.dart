@@ -196,6 +196,30 @@ class ApiGranja {
   Future<void> definirCurvaDeLinea(int lineaId, List<Map<String, Object?>> puntos) =>
       _mandar('PUT', 'lineas/$lineaId/curva', puntos);
 
+  Future<String> categoriasHuevoJson() => _leerJson('categorias-huevo');
+
+  Future<String> resumenFinanzasJson(String desde, String hasta) =>
+      _leerRuta(base.resolve('finanzas/resumen').replace(queryParameters: {'desde': desde, 'hasta': hasta}));
+
+  Future<String> movimientosJson(String desde, String hasta) =>
+      _leerRuta(base.resolve('finanzas').replace(queryParameters: {'desde': desde, 'hasta': hasta}));
+
+  Future<void> guardarMovimiento(String id, Map<String, Object?> cuerpo) => _mandar('PUT', 'finanzas/$id', cuerpo);
+
+  Future<void> borrarMovimiento(String id) async {
+    await _enviar(() => _cliente.delete(base.resolve('finanzas/$id'), headers: _autorizacion()));
+  }
+
+  Future<void> crearCategoriaHuevo(String nombre) => _mandar('POST', 'categorias-huevo', {'nombre': nombre});
+
+  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
+      _mandar('PATCH', 'categorias-huevo/$id', {'nombre': ?nombre, 'activa': ?activa});
+
+  Future<String> _leerRuta(Uri url) async {
+    final respuesta = await _enviar(() => _cliente.get(url, headers: _autorizacion()));
+    return utf8.decode(respuesta.bodyBytes);
+  }
+
   Future<String> galponesJson() => _leerJson('galpones');
 
   Future<String> insumosJson() => _leerJson('insumos');

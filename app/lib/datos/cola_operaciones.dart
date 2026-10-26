@@ -1,6 +1,8 @@
+import '../dominio/finanzas.dart';
 import 'api_granja.dart';
 import 'cola.dart';
 import 'json.dart';
+import 'json_finanzas.dart';
 import 'operaciones.dart';
 
 class ResultadoOperaciones {
@@ -77,6 +79,22 @@ class ColaDeOperaciones {
       cumplimientoId: operacion.id,
       tareaId: operacion.tareaId!,
       fecha: fechaIso(operacion.fecha),
+    ),
+    TipoOperacion.dinero => _api.guardarMovimiento(
+      operacion.id,
+      movimientoAJson(
+        MovimientoDinero(
+          id: operacion.id,
+          fecha: operacion.fecha,
+          rubro: Rubro.desdeCodigo(operacion.rubro!),
+          valor: operacion.valor!,
+          descripcion: operacion.nota ?? '',
+          loteId: operacion.loteId,
+          categoriaId: operacion.categoriaId,
+          cantidadHuevos: operacion.huevos,
+          contraparte: operacion.contraparte ?? '',
+        ),
+      ),
     ),
     TipoOperacion.pesaje => _api.registrarPesaje(
       operacion.loteId!,

@@ -48,6 +48,10 @@ class Montaje {
           {'id': 2, 'nombre': 'Lohmann Brown', 'revisada': true},
         ]),
         '/lineas/plantillas' => _json(['Hy-Line Brown', 'Lohmann Brown']),
+        '/categorias-huevo' => _json([
+          {'id': 1, 'nombre': 'AA', 'activa': true},
+          {'id': 2, 'nombre': 'Roto', 'activa': false},
+        ]),
         '/lineas/1/plan' => _json([
           {
             'id': 10,
@@ -386,6 +390,37 @@ void main() {
     ]);
   });
 
+  testWidgets('lista las categorías de huevo, crea una y cambia el nombre', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    expect(find.text('AA'), findsOneWidget);
+    expect(find.text('Roto'), findsOneWidget);
+    await pulsar(tester, find.text('Nueva categoría'));
+    await tester.enterText(find.byType(TextField), 'Jumbo');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Crear categoría'));
+    expect(montaje.envios, ['POST /categorias-huevo']);
+    expect(montaje.cuerpos.single, {'nombre': 'Jumbo'});
+
+    await pulsar(tester, find.byTooltip('Cambiar el nombre de AA'));
+    await tester.enterText(find.byType(TextField), 'Extra');
+    await tester.pump();
+    await pulsar(tester, find.widgetWithText(FilledButton, 'Guardar'));
+    expect(montaje.envios.last, 'PATCH /categorias-huevo/1');
+    expect(montaje.cuerpos.last, {'nombre': 'Extra'});
+  });
+
+  testWidgets('una categoría se apaga y se prende con el interruptor', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(montaje.envios, ['PATCH /categorias-huevo/1']);
+    expect(montaje.cuerpos.single, {'activa': false});
+  });
+
   testWidgets('el menú de abajo solo trae Administrar cuando se le da la pantalla', (tester) async {
     Widget montar(Widget? administrar) => MaterialApp(
       theme: temaGranja(),
@@ -393,6 +428,7 @@ void main() {
         granja: const Text('granja'),
         bodega: const Text('bodega'),
         sanidad: const Text('sanidad'),
+        dinero: const Text('dinero'),
         administrar: administrar,
       ),
     );

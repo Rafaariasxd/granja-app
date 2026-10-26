@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import '../dominio/administracion.dart';
+import '../dominio/finanzas.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
 import '../dominio/sanidad.dart';
 import 'api_granja.dart';
+import 'json_finanzas.dart';
 import 'json_inventario.dart';
 
 class Catalogo {
@@ -14,6 +16,7 @@ class Catalogo {
     required this.galpones,
     this.razas = const [],
     this.plantillas = const [],
+    this.categoriasHuevo = const [],
   });
 
   final Inventario inventario;
@@ -21,6 +24,7 @@ class Catalogo {
   final List<GalponBasico> galpones;
   final List<Raza> razas;
   final List<String> plantillas;
+  final List<CategoriaHuevo> categoriasHuevo;
 
   Iterable<Insumo> get materiasPrimas => insumos.where((i) => i.tipo == TipoInsumo.materiaPrima);
 
@@ -53,7 +57,18 @@ class RepositorioAdministracion {
         ),
     ];
     final plantillas = [for (final p in jsonDecode(await _api.plantillasDeLineasJson()) as List<dynamic>) p as String];
-    return Catalogo(inventario: inventario, insumos: insumos, galpones: galpones, razas: razas, plantillas: plantillas);
+    final categoriasHuevo = [
+      for (final c in jsonDecode(await _api.categoriasHuevoJson()) as List<dynamic>)
+        categoriaDesdeJson(c as Map<String, dynamic>),
+    ];
+    return Catalogo(
+      inventario: inventario,
+      insumos: insumos,
+      galpones: galpones,
+      razas: razas,
+      plantillas: plantillas,
+      categoriasHuevo: categoriasHuevo,
+    );
   }
 
   Future<List<TareaDePlan>> plan(int razaId) async {
@@ -82,6 +97,11 @@ class RepositorioAdministracion {
         ),
     ];
   }
+
+  Future<void> crearCategoriaHuevo(String nombre) => _api.crearCategoriaHuevo(nombre);
+
+  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
+      _api.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa);
 
   Future<void> crearRaza(String nombre, String? plantilla) => _api.crearLinea(nombre, plantilla);
 
