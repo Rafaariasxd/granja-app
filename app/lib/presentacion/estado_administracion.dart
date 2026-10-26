@@ -63,6 +63,33 @@ class EstadoAdministracion extends ChangeNotifier {
   Future<String?> ponerEnUso(int bodegaId, Etapa etapa, int insumoId) =>
       _accion(() => _repositorio.ponerEnUso(bodegaId, etapa, insumoId));
 
+  Future<List<TareaDePlan>?> plan(int razaId) async {
+    try {
+      return await _repositorio.plan(razaId);
+    } on ErrorDeApi {
+      return null;
+    }
+  }
+
+  Future<List<PuntoDeCurva>?> curva(int razaId) async {
+    try {
+      return await _repositorio.curva(razaId);
+    } on ErrorDeApi {
+      return null;
+    }
+  }
+
+  Future<String?> crearRaza(String nombre, String? plantilla) =>
+      _accion(() => _repositorio.crearRaza(nombre, plantilla));
+
+  Future<String?> renombrarRaza(int razaId, String nombre) => _accion(() => _repositorio.renombrarRaza(razaId, nombre));
+
+  Future<String?> guardarPlan(int razaId, List<TareaDePlan> tareas) =>
+      _accion(() => _repositorio.guardarPlan(razaId, tareas));
+
+  Future<String?> guardarCurva(int razaId, List<PuntoDeCurva> puntos) =>
+      _accion(() => _repositorio.guardarCurva(razaId, puntos));
+
   Future<String?> _accion(Future<void> Function() accion) async {
     try {
       await accion();

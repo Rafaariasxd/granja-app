@@ -8,6 +8,7 @@ import 'cola.dart';
 import 'json.dart';
 import 'operaciones.dart';
 import 'resumen.dart';
+import 'sanidad.dart';
 
 class AlmacenSqlite implements AlmacenCambios {
   AlmacenSqlite(this._db);
@@ -85,6 +86,31 @@ class AlmacenBodegaSqlite implements AlmacenBodega {
     final filas = await _db.query('bodega', where: 'id = ?', whereArgs: [1]);
     if (filas.isEmpty) return null;
     return BodegaGuardada(
+      actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
+      datos: filas.single['datos']! as String,
+    );
+  }
+}
+
+class AlmacenSanidadSqlite implements AlmacenSanidad {
+  AlmacenSanidadSqlite(this._db);
+
+  final Database _db;
+
+  @override
+  Future<void> guardar(SanidadGuardada sanidad) async {
+    await _db.insert('sanidad', {
+      'id': 1,
+      'actualizado_en': sanidad.actualizadoEn.toUtc().toIso8601String(),
+      'datos': sanidad.datos,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<SanidadGuardada?> ultima() async {
+    final filas = await _db.query('sanidad', where: 'id = ?', whereArgs: [1]);
+    if (filas.isEmpty) return null;
+    return SanidadGuardada(
       actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
       datos: filas.single['datos']! as String,
     );

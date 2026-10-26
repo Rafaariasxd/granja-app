@@ -4,8 +4,7 @@ import '../dominio/fechas.dart';
 import '../dominio/ids.dart';
 import '../dominio/inventario.dart';
 import 'api_granja.dart';
-import 'cola.dart';
-import 'json.dart';
+import 'cola_operaciones.dart';
 import 'json_inventario.dart';
 import 'operaciones.dart';
 
@@ -47,19 +46,13 @@ class Cantidad {
   final bool enBultos;
 }
 
-class ResultadoOperaciones {
-  const ResultadoOperaciones({required this.quedanPendientes, this.sesionVencida = false});
-
-  final bool quedanPendientes;
-  final bool sesionVencida;
-}
-
 class RepositorioBodega {
-  RepositorioBodega(this._api, this._almacen, this._operaciones);
+  RepositorioBodega(this._api, this._almacen, AlmacenOperaciones operaciones)
+    : _operaciones = ColaDeOperaciones(_api, operaciones);
 
   final ApiGranja _api;
   final AlmacenBodega _almacen;
-  final AlmacenOperaciones _operaciones;
+  final ColaDeOperaciones _operaciones;
 
   Future<BodegaActual?> inventario(DateTime ahora) async {
     try {
@@ -133,58 +126,11 @@ class RepositorioBodega {
     nota: 'Conteo en la bodega',
   );
 
-  Future<List<OperacionBodega>> sinResolver() => _operaciones.sinResolver();
+  Future<List<OperacionBodega>> sinResolver() => _operaciones.sinResolver(tiposDeBodega);
 
-  Future<void> descartar(String id) => _operaciones.quitar(id);
+  Future<void> descartar(String id) => _operaciones.descartar(id);
 
-  Future<ResultadoOperaciones> enviarOperaciones() async {
-    for (final operacion in await _operaciones.porEnviar()) {
-      try {
-        await _enviar(operacion);
-        await _operaciones.quitar(operacion.id);
-      } on DatosRechazados catch (error) {
-        await _operaciones.guardar(operacion.con(estado: EstadoEnvio.rechazado, mensaje: error.mensaje));
-      } on SinPermiso catch (error) {
-        await _operaciones.guardar(operacion.con(estado: EstadoEnvio.rechazado, mensaje: error.mensaje));
-      } on RegistroEnConflicto catch (error) {
-        await _operaciones.guardar(operacion.con(estado: EstadoEnvio.enConflicto, mensaje: error.mensaje));
-      } on SesionVencida catch (error) {
-        await _operaciones.guardar(operacion.con(estado: EstadoEnvio.pendiente, mensaje: error.mensaje));
-        return const ResultadoOperaciones(quedanPendientes: true, sesionVencida: true);
-      } on ErrorDeApi catch (error) {
-        await _operaciones.guardar(operacion.con(estado: EstadoEnvio.pendiente, mensaje: error.mensaje));
-        return const ResultadoOperaciones(quedanPendientes: true);
-      }
-    }
-    return const ResultadoOperaciones(quedanPendientes: false);
-  }
-
-  Future<void> _enviar(OperacionBodega operacion) => switch (operacion.tipo) {
-    TipoOperacion.compra => _api.registrarCompra(
-      operacion.insumoId,
-      operacionId: operacion.id,
-      bodegaId: operacion.bodegaId,
-      bultos: operacion.bultos!,
-      fecha: fechaIso(operacion.fecha),
-    ),
-    TipoOperacion.gasto => _api.registrarGasto(
-      operacion.insumoId,
-      operacionId: operacion.id,
-      bodegaId: operacion.bodegaId,
-      bultos: operacion.bultos,
-      kg: operacion.kg,
-      nota: operacion.descripcion,
-      fecha: fechaIso(operacion.fecha),
-    ),
-    TipoOperacion.preparacion => _api.prepararAlimento(
-      operacion.insumoId,
-      operacionId: operacion.id,
-      desdeBodegaId: operacion.bodegaId,
-      haciaBodegaId: operacion.haciaBodegaId!,
-      kg: operacion.kg!,
-      fecha: fechaIso(operacion.fecha),
-    ),
-  };
+  Future<ResultadoOperaciones> enviarOperaciones() => _operaciones.enviar();
 
   Inventario _leer(String datos) => inventarioDesdeJson(jsonDecode(datos) as Map<String, dynamic>);
 }
