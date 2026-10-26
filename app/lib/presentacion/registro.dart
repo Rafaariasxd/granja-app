@@ -180,38 +180,41 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
                         alCambiar: _f.sumarMuertas,
                       ),
                       const SizedBox(height: 12),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Alimento',
-                                  style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      if (_f.kgPorBulto != null)
+                        _AlimentoEnBultos(formulario: _f)
+                      else
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Alimento',
+                                    style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(
-                                width: 112,
-                                child: TextField(
-                                  controller: _alimento,
-                                  keyboardType: TextInputType.number,
-                                  textAlign: TextAlign.end,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(5),
-                                  ],
-                                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
-                                  decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '0'),
-                                  onChanged: (texto) => _f.cambiarAlimento((int.tryParse(texto) ?? 0).toDouble()),
+                                SizedBox(
+                                  width: 112,
+                                  child: TextField(
+                                    controller: _alimento,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.end,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(5),
+                                    ],
+                                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+                                    decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '0'),
+                                    onChanged: (texto) => _f.cambiarAlimento((int.tryParse(texto) ?? 0).toDouble()),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text('kg', style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                            ],
+                                const SizedBox(width: 8),
+                                Text('kg', style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -271,6 +274,53 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AlimentoEnBultos extends StatelessWidget {
+  const _AlimentoEnBultos({required this.formulario});
+
+  final FormularioRegistro formulario;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final bultos = formulario.bultos!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Alimento', style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    bultos == 0 ? 'bultos gastados' : 'bultos gastados · ${kilos(formulario.alimentoKg)}',
+                    style: textos.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            _Boton(
+              icono: Icons.remove,
+              etiqueta: 'Medio bulto menos',
+              alPulsar: bultos > 0 ? () => formulario.sumarMediosBultos(-1) : null,
+            ),
+            SizedBox(
+              width: 72,
+              child: Text(
+                decimal(bultos),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800),
+              ),
+            ),
+            _Boton(icono: Icons.add, etiqueta: 'Medio bulto más', alPulsar: () => formulario.sumarMediosBultos(1)),
+          ],
+        ),
+      ),
     );
   }
 }

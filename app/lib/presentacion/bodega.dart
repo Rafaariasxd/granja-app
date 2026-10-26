@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../datos/bodega.dart';
 import '../datos/cola.dart';
 import '../datos/operaciones.dart';
 import '../dominio/inventario.dart';
@@ -50,6 +51,23 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
     widget.estado.cargar();
   }
 
+  Future<void> _abrirInsumo(Bodega bodega, Existencia existencia) async {
+    final accion = await showModalBottomSheet<_AccionInsumo>(
+      context: context,
+      backgroundColor: Colores.cal,
+      builder: (_) => _HojaInsumo(existencia: existencia),
+    );
+    if (accion == null || !mounted) return;
+    switch (accion) {
+      case _AccionInsumo.llego:
+        return _comprar(bodega, existencia);
+      case _AccionInsumo.gaste:
+        return _gastar(bodega, existencia);
+      case _AccionInsumo.conte:
+        return _contar(bodega, existencia);
+    }
+  }
+
   Future<void> _comprar(Bodega bodega, Existencia existencia) async {
     final guardado = await showModalBottomSheet<bool>(
       context: context,
@@ -60,6 +78,53 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
     if (guardado == true && mounted) {
       _avisarGuardado('Compra guardada');
     }
+  }
+
+  Future<void> _gastar(Bodega bodega, Existencia existencia) async {
+    final guardado = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colores.cal,
+      builder: (_) => _HojaCantidad(
+        insumo: existencia.insumo,
+        titulo: 'Gasté ${existencia.insumo.nombre}',
+        subtitulo: 'De ${bodega.nombre}. Hay ${_cantidadActual(existencia)}.',
+        boton: 'Guardar lo gastado',
+        inicial: 1,
+        minimo: 0.5,
+        alGuardar: (cantidad) => widget.estado.registrarGasto(existencia.insumo, bodega.id, cantidad),
+      ),
+    );
+    if (guardado == true && mounted) {
+      _avisarGuardado('Gasto guardado');
+    }
+  }
+
+  Future<void> _contar(Bodega bodega, Existencia existencia) async {
+    final kgPorBulto = existencia.insumo.kgPorBulto;
+    final actual = existencia.stockKg < 0 ? 0.0 : existencia.stockKg;
+    final guardado = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colores.cal,
+      builder: (_) => _HojaCantidad(
+        insumo: existencia.insumo,
+        titulo: 'Conté ${existencia.insumo.nombre}',
+        subtitulo: 'En ${bodega.nombre}. La app dice que hay ${_cantidadActual(existencia)}.',
+        boton: 'Dejar este conteo',
+        inicial: kgPorBulto == null ? actual : (actual / kgPorBulto * 2).round() / 2,
+        minimo: 0,
+        alGuardar: (cantidad) => widget.estado.contar(existencia.insumo, bodega.id, cantidad),
+      ),
+    );
+    if (guardado == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conteo guardado')));
+    }
+  }
+
+  String _cantidadActual(Existencia existencia) {
+    if (existencia.stockKg <= 0) return 'nada';
+    return cantidadTexto(existencia.stockKg, existencia.insumo.kgPorBulto);
   }
 
   void _avisarGuardado(String texto) {
@@ -174,7 +239,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
         _Lista(
           titulo: 'Materias primas',
           items: actual.existencias,
-          alPulsar: (e) => _comprar(bodega, e),
+          alPulsar: (e) => _abrirInsumo(bodega, e),
           vacio: 'Todavía no hay materias primas creadas.',
         ),
       ];
@@ -182,11 +247,14 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
     return [
       _Galpones(cantidad: actual.galponIds.length),
       const SizedBox(height: 12),
-      for (final etapa in actual.etapas) ...[_EtapaTarjeta(cobertura: etapa), const SizedBox(height: 12)],
+      for (final etapa in actual.etapas) ...[
+        _EtapaTarjeta(cobertura: etapa, kgPorBulto: actual.kgPorBultoDe(etapa.enUsoId)),
+        const SizedBox(height: 12),
+      ],
       _Lista(
         titulo: 'Alimento',
         items: actual.existencias,
-        alPulsar: (e) => e.insumo.tipo == TipoInsumo.alimentoComprado ? _comprar(bodega, e) : null,
+        alPulsar: (e) => _abrirInsumo(bodega, e),
         vacio: 'Todavía no hay alimento en esta bodega.',
       ),
     ];
@@ -380,7 +448,11 @@ class _OperacionFila extends StatelessWidget {
   Widget build(BuildContext context) {
     final textos = Theme.of(context).textTheme;
     final pendiente = operacion.estado == EstadoEnvio.pendiente;
-    final accion = operacion.tipo == TipoOperacion.compra ? 'Compra' : 'Preparación';
+    final accion = switch (operacion.tipo) {
+      TipoOperacion.compra => 'Compra',
+      TipoOperacion.preparacion => 'Preparación',
+      TipoOperacion.gasto => 'Gasto',
+    };
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -421,9 +493,10 @@ class _OperacionFila extends StatelessWidget {
 }
 
 class _EtapaTarjeta extends StatelessWidget {
-  const _EtapaTarjeta({required this.cobertura});
+  const _EtapaTarjeta({required this.cobertura, required this.kgPorBulto});
 
   final CoberturaEtapa cobertura;
+  final double? kgPorBulto;
 
   @override
   Widget build(BuildContext context) {
@@ -449,8 +522,8 @@ class _EtapaTarjeta extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Hay ${kilos(cobertura.stockKg)} de alimento'
-              '${consumo == null ? '' : ' · se gastan ${kilos(consumo)} al día'}',
+              'Hay ${cantidadTexto(cobertura.stockKg, kgPorBulto)}${kgPorBulto == null ? '' : ' (${kilos(cobertura.stockKg)})'} de alimento'
+              '${consumo == null ? '' : ' · se gastan ${cantidadTexto(consumo, kgPorBulto)} al día'}',
               style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
             ),
           ],
@@ -554,9 +627,8 @@ class _Fila extends StatelessWidget {
     final textos = Theme.of(context).textTheme;
     final estilo = _estilo(existencia.nivel);
     final dias = existencia.dias;
-    final seCompra = existencia.insumo.tipo != TipoInsumo.alimentoPreparado;
     return InkWell(
-      onTap: seCompra ? alPulsar : null,
+      onTap: alPulsar,
       child: Container(
         constraints: const BoxConstraints(minHeight: 68),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -576,7 +648,8 @@ class _Fila extends StatelessWidget {
                 diasTexto(dias),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: estilo.color),
               ),
-            if (seCompra) ...[const SizedBox(width: 4), const Icon(Icons.chevron_right, color: Colores.tintaSuave)],
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: Colores.tintaSuave),
           ],
         ),
       ),
@@ -717,6 +790,178 @@ class _HojaCompraState extends State<_HojaCompra> {
             ],
             const SizedBox(height: 16),
             FilledButton(onPressed: _guardando ? null : _guardar, child: const Text('Guardar compra')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _AccionInsumo { llego, gaste, conte }
+
+class _HojaInsumo extends StatelessWidget {
+  const _HojaInsumo({required this.existencia});
+
+  final Existencia existencia;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final seCompra = existencia.insumo.tipo != TipoInsumo.alimentoPreparado;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(existencia.insumo.nombre, style: textos.headlineMedium),
+            const SizedBox(height: 16),
+            if (seCompra) ...[
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(_AccionInsumo.llego),
+                icon: const Icon(Icons.local_shipping_outlined),
+                label: const Text('Llegó (compra)'),
+              ),
+              const SizedBox(height: 10),
+            ],
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(_AccionInsumo.gaste),
+              icon: const Icon(Icons.remove_circle_outline),
+              label: const Text('Gasté'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(_AccionInsumo.conte),
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('Conté lo que hay'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HojaCantidad extends StatefulWidget {
+  const _HojaCantidad({
+    required this.insumo,
+    required this.titulo,
+    required this.subtitulo,
+    required this.boton,
+    required this.inicial,
+    required this.minimo,
+    required this.alGuardar,
+  });
+
+  final Insumo insumo;
+  final String titulo;
+  final String subtitulo;
+  final String boton;
+  final double inicial;
+  final double minimo;
+  final Future<String?> Function(Cantidad cantidad) alGuardar;
+
+  @override
+  State<_HojaCantidad> createState() => _HojaCantidadState();
+}
+
+class _HojaCantidadState extends State<_HojaCantidad> {
+  late double _valor = widget.inicial;
+  late final TextEditingController _kg = TextEditingController(
+    text: widget.inicial == 0 ? '' : widget.inicial.round().toString(),
+  );
+  bool _guardando = false;
+  String? _error;
+
+  double? get _porBulto => widget.insumo.kgPorBulto;
+
+  bool get _valido => _porBulto != null ? _valor >= widget.minimo : (int.tryParse(_kg.text) ?? -1) >= widget.minimo;
+
+  @override
+  void dispose() {
+    _kg.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardar() async {
+    setState(() {
+      _guardando = true;
+      _error = null;
+    });
+    final cantidad = _porBulto != null ? Cantidad.bultos(_valor) : Cantidad.kilos(double.parse(_kg.text));
+    final error = await widget.alGuardar(cantidad);
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _guardando = false;
+        _error = error;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final porBulto = _porBulto;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.titulo, style: textos.headlineMedium),
+            const SizedBox(height: 4),
+            Text(widget.subtitulo, style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave)),
+            const SizedBox(height: 16),
+            if (porBulto != null) ...[
+              Row(
+                children: [
+                  _BotonMedio(
+                    icono: Icons.remove,
+                    etiqueta: 'Medio bulto menos',
+                    alPulsar: _valor - 0.5 >= widget.minimo ? () => setState(() => _valor -= 0.5) : null,
+                  ),
+                  Expanded(
+                    child: Text(
+                      _valor == 0 ? '0 bultos' : bultosTexto(_valor),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  _BotonMedio(
+                    icono: Icons.add,
+                    etiqueta: 'Medio bulto más',
+                    alPulsar: () => setState(() => _valor += 0.5),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Center(child: Text('Son ${kilos(_valor * porBulto)}', style: textos.bodyLarge)),
+            ] else
+              TextField(
+                controller: _kg,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800),
+                decoration: const InputDecoration(
+                  hintText: '0',
+                  suffixText: 'kg',
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colores.monte, width: 2)),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!, style: const TextStyle(fontSize: 16, color: Colores.urgenteTexto)),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(onPressed: _valido && !_guardando ? _guardar : null, child: Text(widget.boton)),
           ],
         ),
       ),

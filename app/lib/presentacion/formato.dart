@@ -17,6 +17,8 @@ String decimal(double valor) {
 
 String kilos(double kg) => '${miles(kg.round())} kg';
 
+String cantidadTexto(double kg, double? kgPorBulto) => kgPorBulto == null ? kilos(kg) : bultosTexto(kg / kgPorBulto);
+
 String bultosTexto(double bultos) {
   final enteros = bultos.floor();
   final resto = bultos - enteros;

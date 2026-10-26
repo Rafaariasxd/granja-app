@@ -1,7 +1,7 @@
 import 'cola.dart';
 import 'json.dart';
 
-enum TipoOperacion { compra, preparacion }
+enum TipoOperacion { compra, preparacion, gasto }
 
 class OperacionBodega {
   const OperacionBodega({

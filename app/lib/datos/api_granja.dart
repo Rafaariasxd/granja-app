@@ -123,6 +123,31 @@ class ApiGranja {
     'fecha': fecha,
   });
 
+  Future<void> registrarGasto(
+    int insumoId, {
+    required String operacionId,
+    required int bodegaId,
+    double? bultos,
+    double? kg,
+    required String nota,
+    required String fecha,
+  }) => _mandar('POST', 'insumos/$insumoId/gastos', {
+    'operacion_id': operacionId,
+    'bodega_id': bodegaId,
+    'bultos': ?bultos,
+    'kg': ?kg,
+    'nota': nota,
+    'fecha': fecha,
+  });
+
+  Future<void> ajustarStock(int insumoId, {required int bodegaId, double? bultos, double? kg, required String nota}) =>
+      _mandar('POST', 'insumos/$insumoId/ajuste', {
+        'bodega_id': bodegaId,
+        'bultos_reales': ?bultos,
+        'kg_reales': ?kg,
+        'nota': nota,
+      });
+
   Future<String> galponesJson() => _leerJson('galpones');
 
   Future<String> insumosJson() => _leerJson('insumos');

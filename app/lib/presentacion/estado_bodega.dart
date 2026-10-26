@@ -5,6 +5,7 @@ import '../datos/bodega.dart';
 import '../datos/cola.dart';
 import '../datos/operaciones.dart';
 import '../dominio/inventario.dart';
+import '../dominio/modelos.dart';
 import 'formato.dart';
 
 class EstadoBodega extends ChangeNotifier {
@@ -57,6 +58,30 @@ class EstadoBodega extends ChangeNotifier {
   Future<String?> prepararAlimento(MezclaPosible mezcla, int haciaBodegaId, double kg) => _guardar(
     () => _repositorio.guardarPreparacion(mezcla, haciaBodegaId, kg, '${kilos(kg)} de ${mezcla.producto}', _reloj()),
   );
+
+  Future<String?> registrarGasto(Insumo insumo, int bodegaId, Cantidad cantidad) => _guardar(
+    () => _repositorio.guardarGasto(insumo, bodegaId, cantidad, '${_texto(cantidad)} de ${insumo.nombre}', _reloj()),
+  );
+
+  Future<String?> contar(Insumo insumo, int bodegaId, Cantidad cantidad) async {
+    try {
+      await _repositorio.contar(insumo, bodegaId, cantidad);
+    } on SinConexion {
+      return 'Sin señal: contar necesita internet. Prueba de nuevo cuando haya señal.';
+    } on SesionVencida {
+      _sesionVencida = true;
+      notifyListeners();
+      return 'La sesión se cerró, vuelve a entrar.';
+    } on ErrorDeApi catch (error) {
+      return error.mensaje;
+    }
+    await cargar();
+    return null;
+  }
+
+  double? kgPorBultoDelGalpon(int galponId, Etapa? etapa) => inventario?.kgPorBultoDelGalpon(galponId, etapa);
+
+  String _texto(Cantidad cantidad) => cantidad.enBultos ? bultosTexto(cantidad.valor) : kilos(cantidad.valor);
 
   Future<void> descartar(String id) async {
     await _repositorio.descartar(id);
