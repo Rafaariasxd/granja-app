@@ -7,14 +7,18 @@ class Cascaron extends StatefulWidget {
     super.key,
     required this.granja,
     required this.bodega,
+    required this.sanidad,
     this.alAbrirBodega,
+    this.alAbrirSanidad,
     this.administrar,
     this.alAbrirAdministrar,
   });
 
   final Widget granja;
   final Widget bodega;
+  final Widget sanidad;
   final VoidCallback? alAbrirBodega;
+  final VoidCallback? alAbrirSanidad;
   final Widget? administrar;
   final VoidCallback? alAbrirAdministrar;
 
@@ -30,7 +34,7 @@ class _CascaronState extends State<Cascaron> {
     return Scaffold(
       body: IndexedStack(
         index: _actual,
-        children: [widget.granja, widget.bodega, if (widget.administrar != null) widget.administrar!],
+        children: [widget.granja, widget.bodega, widget.sanidad, if (widget.administrar != null) widget.administrar!],
       ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
@@ -56,7 +60,8 @@ class _CascaronState extends State<Cascaron> {
           onDestinationSelected: (indice) {
             setState(() => _actual = indice);
             if (indice == 1) widget.alAbrirBodega?.call();
-            if (indice == 2) widget.alAbrirAdministrar?.call();
+            if (indice == 2) widget.alAbrirSanidad?.call();
+            if (indice == 3) widget.alAbrirAdministrar?.call();
           },
           destinations: [
             const NavigationDestination(
@@ -68,6 +73,11 @@ class _CascaronState extends State<Cascaron> {
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2),
               label: 'Bodega',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.health_and_safety_outlined),
+              selectedIcon: Icon(Icons.health_and_safety),
+              label: 'Sanidad',
             ),
             if (widget.administrar != null)
               const NavigationDestination(

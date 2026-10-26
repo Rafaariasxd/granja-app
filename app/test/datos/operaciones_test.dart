@@ -5,6 +5,7 @@ import 'package:granja_app/datos/almacen_sqlite.dart';
 import 'package:granja_app/datos/base_local.dart';
 import 'package:granja_app/datos/cola.dart';
 import 'package:granja_app/datos/operaciones.dart';
+import 'package:granja_app/datos/sanidad.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final momento = DateTime.utc(2026, 10, 25, 14);
@@ -75,6 +76,36 @@ void contrato(
       expect((vista.estado, vista.mensaje, vista.intentos), (EstadoEnvio.rechazado, 'no alcanza', 1));
     });
 
+    test('conserva los datos de una vacuna y de un pesaje', () async {
+      await almacen.guardar(
+        OperacionBodega(
+          id: 'v',
+          tipo: TipoOperacion.aplicacion,
+          fecha: DateTime.utc(2026, 10, 24),
+          loteId: 4,
+          tareaId: 9,
+          descripcion: 'Gumboro en Galpón 5',
+          guardadoEn: momento,
+        ),
+      );
+      await almacen.guardar(
+        OperacionBodega(
+          id: 'p',
+          tipo: TipoOperacion.pesaje,
+          fecha: DateTime.utc(2026, 10, 25),
+          loteId: 4,
+          pesoG: 1020.5,
+          aves: 40,
+          descripcion: 'Pesaje de Galpón 5: 1021 g',
+          guardadoEn: momento.add(const Duration(minutes: 1)),
+        ),
+      );
+      final todas = await almacen.sinResolver();
+      expect(todas.map((o) => o.id), ['v', 'p']);
+      expect((todas[0].loteId, todas[0].tareaId, todas[0].insumoId), (4, 9, null));
+      expect((todas[1].pesoG, todas[1].aves, todas[1].tareaId), (1020.5, 40, null));
+    });
+
     test('quitar borra la operación', () async {
       await almacen.guardar(compra('a'));
       await almacen.quitar('a');
@@ -102,6 +133,25 @@ void main() {
     return AlmacenOperacionesSqlite(base);
   }, (_) => base.close());
 
+  test('el almacén de sanidad guarda solo la última copia', () async {
+    final almacen = AlmacenSanidadEnMemoria();
+    expect(await almacen.ultima(), isNull);
+    await almacen.guardar(SanidadGuardada(actualizadoEn: momento, datos: 'a'));
+    await almacen.guardar(SanidadGuardada(actualizadoEn: momento.add(const Duration(hours: 1)), datos: 'b'));
+    expect((await almacen.ultima())!.datos, 'b');
+  });
+
+  test('el almacén de sanidad en sqlite recuerda la última copia', () async {
+    final db = await abrirBaseLocal(databaseFactoryFfi, inMemoryDatabasePath);
+    final almacen = AlmacenSanidadSqlite(db);
+    expect(await almacen.ultima(), isNull);
+    await almacen.guardar(SanidadGuardada(actualizadoEn: momento, datos: '{"a":1}'));
+    await almacen.guardar(SanidadGuardada(actualizadoEn: momento.add(const Duration(hours: 1)), datos: '{"a":2}'));
+    final ultima = (await almacen.ultima())!;
+    expect((ultima.datos, ultima.actualizadoEn), ('{"a":2}', momento.add(const Duration(hours: 1))));
+    await db.close();
+  });
+
   test('una base de la versión anterior gana la tabla de operaciones al abrirse', () async {
     final carpeta = Directory.systemTemp.createTempSync('granja_');
     addTearDown(() => carpeta.deleteSync(recursive: true));
@@ -112,6 +162,7 @@ void main() {
 
     final nueva = await abrirBaseLocal(databaseFactoryFfi, ruta);
     expect(await nueva.query('sqlite_master', where: "name = 'operaciones'"), hasLength(1));
+    expect(await nueva.query('sqlite_master', where: "name = 'sanidad'"), hasLength(1));
     await nueva.close();
   });
 }

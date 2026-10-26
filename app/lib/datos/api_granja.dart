@@ -148,6 +148,35 @@ class ApiGranja {
         'nota': nota,
       });
 
+  Future<String> sanidadJson(DateTime fecha) async {
+    final url = base.resolve('sanidad').replace(queryParameters: {'fecha': fechaIso(fecha)});
+    final respuesta = await _enviar(() => _cliente.get(url, headers: _autorizacion()));
+    return utf8.decode(respuesta.bodyBytes);
+  }
+
+  Future<void> marcarAplicada(
+    int loteId, {
+    required String cumplimientoId,
+    required int tareaId,
+    required String fecha,
+  }) => _mandar('PUT', 'lotes/$loteId/cumplimientos/$cumplimientoId', {'tarea_id': tareaId, 'fecha': fecha});
+
+  Future<void> deshacerAplicacion(String cumplimientoId) async {
+    await _enviar(() => _cliente.delete(base.resolve('cumplimientos/$cumplimientoId'), headers: _autorizacion()));
+  }
+
+  Future<void> registrarPesaje(
+    int loteId, {
+    required String pesajeId,
+    required String fecha,
+    required double pesoG,
+    required int aves,
+  }) => _mandar('PUT', 'lotes/$loteId/pesajes/$pesajeId', {'fecha': fecha, 'peso_g': pesoG, 'aves_pesadas': aves});
+
+  Future<void> quitarPesaje(String pesajeId) async {
+    await _enviar(() => _cliente.delete(base.resolve('pesajes/$pesajeId'), headers: _autorizacion()));
+  }
+
   Future<String> galponesJson() => _leerJson('galpones');
 
   Future<String> insumosJson() => _leerJson('insumos');

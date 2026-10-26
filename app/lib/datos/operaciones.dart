@@ -1,20 +1,27 @@
 import 'cola.dart';
 import 'json.dart';
 
-enum TipoOperacion { compra, preparacion, gasto }
+enum TipoOperacion { compra, preparacion, gasto, aplicacion, pesaje }
+
+const tiposDeBodega = {TipoOperacion.compra, TipoOperacion.preparacion, TipoOperacion.gasto};
+const tiposDeSanidad = {TipoOperacion.aplicacion, TipoOperacion.pesaje};
 
 class OperacionBodega {
   const OperacionBodega({
     required this.id,
     required this.tipo,
     required this.fecha,
-    required this.insumoId,
-    required this.bodegaId,
     required this.descripcion,
     required this.guardadoEn,
+    this.insumoId,
+    this.bodegaId,
     this.haciaBodegaId,
     this.bultos,
     this.kg,
+    this.loteId,
+    this.tareaId,
+    this.pesoG,
+    this.aves,
     this.estado = EstadoEnvio.pendiente,
     this.mensaje,
     this.intentos = 0,
@@ -23,11 +30,15 @@ class OperacionBodega {
   final String id;
   final TipoOperacion tipo;
   final DateTime fecha;
-  final int insumoId;
-  final int bodegaId;
+  final int? insumoId;
+  final int? bodegaId;
   final int? haciaBodegaId;
   final double? bultos;
   final double? kg;
+  final int? loteId;
+  final int? tareaId;
+  final double? pesoG;
+  final int? aves;
   final String descripcion;
   final DateTime guardadoEn;
   final EstadoEnvio estado;
@@ -43,6 +54,10 @@ class OperacionBodega {
     haciaBodegaId: haciaBodegaId,
     bultos: bultos,
     kg: kg,
+    loteId: loteId,
+    tareaId: tareaId,
+    pesoG: pesoG,
+    aves: aves,
     descripcion: descripcion,
     guardadoEn: guardadoEn,
     estado: estado,
@@ -59,6 +74,10 @@ class OperacionBodega {
     'hacia_bodega_id': haciaBodegaId,
     'bultos': bultos,
     'kg': kg,
+    'lote_id': loteId,
+    'tarea_id': tareaId,
+    'peso_g': pesoG,
+    'aves': aves,
     'descripcion': descripcion,
     'guardado_en': guardadoEn.toUtc().toIso8601String(),
     'estado': estado.name,
@@ -70,11 +89,15 @@ class OperacionBodega {
     id: mapa['id']! as String,
     tipo: TipoOperacion.values.byName(mapa['tipo']! as String),
     fecha: fechaDesdeIso(mapa['fecha']! as String),
-    insumoId: mapa['insumo_id']! as int,
-    bodegaId: mapa['bodega_id']! as int,
+    insumoId: mapa['insumo_id'] as int?,
+    bodegaId: mapa['bodega_id'] as int?,
     haciaBodegaId: mapa['hacia_bodega_id'] as int?,
     bultos: (mapa['bultos'] as num?)?.toDouble(),
     kg: (mapa['kg'] as num?)?.toDouble(),
+    loteId: mapa['lote_id'] as int?,
+    tareaId: mapa['tarea_id'] as int?,
+    pesoG: (mapa['peso_g'] as num?)?.toDouble(),
+    aves: mapa['aves'] as int?,
     descripcion: mapa['descripcion']! as String,
     guardadoEn: DateTime.parse(mapa['guardado_en']! as String),
     estado: EstadoEnvio.values.byName(mapa['estado']! as String),

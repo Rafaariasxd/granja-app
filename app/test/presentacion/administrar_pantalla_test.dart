@@ -230,7 +230,12 @@ void main() {
   testWidgets('el menú de abajo solo trae Administrar cuando se le da la pantalla', (tester) async {
     Widget montar(Widget? administrar) => MaterialApp(
       theme: temaGranja(),
-      home: Cascaron(granja: const Text('granja'), bodega: const Text('bodega'), administrar: administrar),
+      home: Cascaron(
+        granja: const Text('granja'),
+        bodega: const Text('bodega'),
+        sanidad: const Text('sanidad'),
+        administrar: administrar,
+      ),
     );
 
     await tester.pumpWidget(montar(null));
