@@ -6,6 +6,7 @@ import 'package:granja_app/datos/api_granja.dart';
 import 'package:granja_app/datos/huevos.dart';
 import 'package:granja_app/datos/operaciones.dart';
 import 'package:granja_app/presentacion/estado_huevos.dart';
+import 'package:granja_app/presentacion/hoja.dart';
 import 'package:granja_app/presentacion/huevo.dart';
 import 'package:granja_app/presentacion/tema.dart';
 import 'package:http/http.dart' as http;
@@ -92,7 +93,8 @@ Future<void> pulsar(WidgetTester tester, Finder buscador) async {
 }
 
 Future<void> escribir(WidgetTester tester, String etiqueta, String texto) async {
-  final campo = find.widgetWithText(TextField, etiqueta);
+  final porClave = find.byKey(ValueKey(etiqueta));
+  final campo = porClave.evaluate().isNotEmpty ? porClave : find.widgetWithText(TextField, etiqueta);
   await tester.ensureVisible(campo);
   await tester.enterText(campo, texto);
   await tester.pump();
@@ -376,5 +378,77 @@ void main() {
     await abrir(tester, montaje);
 
     expect(montaje.estado.sesionVencida, isTrue);
+  });
+
+  group('huevo del día', () {
+    Future<bool?> abrirHojaDelDia(WidgetTester tester, Montaje montaje, int recogidos) async {
+      tester.view.physicalSize = const Size(900, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await montaje.estado.cargar();
+      bool? resultado;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: temaGranja(),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => resultado = await abrirHoja<bool>(
+                context: context,
+                builder: (_) => HojaHuevoDelDia(estado: montaje.estado, origen: 'Galpón 1', recogidos: recogidos),
+              ),
+              child: const Text('abrir'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      return resultado;
+    }
+
+    testWidgets('lo clasificado por tamaño entra a la bodega, una entrada por tamaño', (tester) async {
+      final montaje = Montaje();
+      await abrirHojaDelDia(tester, montaje, 1398);
+
+      expect(find.textContaining('se recogieron 1.398 huevos'), findsOneWidget);
+      await escribir(tester, 'AA Cajas', '3');
+      await escribir(tester, 'A Cartones', '10');
+      expect(find.text('Van 3 cajas y 10 cartones (1.380 de 1.398 huevos)'), findsOneWidget);
+      await pulsar(tester, find.text('Guardar en la bodega'));
+
+      final ingresos = [for (final c in montaje.cuerpos) (c['categoria_id'], c['huevos'])];
+      expect(ingresos, [(1, 1080), (2, 300)]);
+      expect(montaje.peticiones.where((p) => p == 'POST /huevos/ingresos'), hasLength(2));
+      expect(find.text('Guardar en la bodega'), findsNothing);
+    });
+
+    testWidgets('ahora no cierra sin guardar nada', (tester) async {
+      final montaje = Montaje();
+      await abrirHojaDelDia(tester, montaje, 1398);
+
+      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Guardar en la bodega')).onPressed, isNull);
+      await pulsar(tester, find.text('Ahora no'));
+
+      expect(find.text('Guardar en la bodega'), findsNothing);
+      expect(montaje.cuerpos, isEmpty);
+    });
+
+    testWidgets('avisa si se pasa más huevo del recogido', (tester) async {
+      final montaje = Montaje();
+      await abrirHojaDelDia(tester, montaje, 300);
+
+      await escribir(tester, 'AA Cajas', '1');
+      expect(find.textContaining('Es más de lo que se recogió'), findsOneWidget);
+    });
+
+    testWidgets('solo muestra los tamaños activos', (tester) async {
+      final datos = bodega();
+      (datos['existencias'] as List).add({...existencia(4, 'Roto', 0), 'activa': false});
+      final montaje = Montaje(datos: datos);
+      await abrirHojaDelDia(tester, montaje, 100);
+
+      expect(find.byKey(const ValueKey('AA Cajas')), findsOneWidget);
+      expect(find.byKey(const ValueKey('Roto Cajas')), findsNothing);
+    });
   });
 }

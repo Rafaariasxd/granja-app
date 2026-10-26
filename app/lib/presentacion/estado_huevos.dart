@@ -116,6 +116,18 @@ class EstadoHuevos extends ChangeNotifier {
     () => _repositorio.guardarIngreso(categoriaId, huevos, '${empaqueTexto(huevos)} ${_nombre(categoriaId)}', _reloj()),
   );
 
+  Future<String?> ingresarVarios(Map<int, int> lineas, String origen) => _guardar(() async {
+    for (final MapEntry(key: categoria, value: huevos) in lineas.entries) {
+      if (huevos <= 0) continue;
+      await _repositorio.guardarIngreso(
+        categoria,
+        huevos,
+        '${empaqueTexto(huevos)} ${_nombre(categoria)} de $origen',
+        _reloj(),
+      );
+    }
+  });
+
   Future<String?> darDeBaja(int categoriaId, int huevos, String nota) => _guardar(
     () => _repositorio.guardarBaja(
       categoriaId,

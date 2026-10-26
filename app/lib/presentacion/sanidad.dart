@@ -9,6 +9,7 @@ import 'fecha_texto.dart';
 import 'formato.dart';
 import 'sin_enviar.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 class _Estilo {
   const _Estilo(this.fondo, this.color, this.icono);
@@ -40,9 +41,10 @@ String _textoPeso(NivelPeso nivel) => switch (nivel) {
 String _fechaCorta(DateTime fecha) => fechaLarga(fecha).split(' ').skip(1).join(' ');
 
 class SanidadPantalla extends StatefulWidget {
-  const SanidadPantalla({super.key, required this.estado});
+  const SanidadPantalla({super.key, required this.estado, this.alPreguntar});
 
   final EstadoSanidad estado;
+  final void Function(String? pregunta)? alPreguntar;
 
   @override
   State<SanidadPantalla> createState() => _SanidadPantallaState();
@@ -55,7 +57,7 @@ class _SanidadPantallaState extends State<SanidadPantalla> {
     widget.estado.cargar();
   }
 
-  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+  Future<void> _verSinEnviar() => abrirHoja<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colores.cal,
@@ -70,7 +72,8 @@ class _SanidadPantallaState extends State<SanidadPantalla> {
   void _abrir(GalponSanidad galpon) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => GalponSanidadPantalla(estado: widget.estado, galponId: galpon.galponId),
+        builder: (_) =>
+            GalponSanidadPantalla(estado: widget.estado, galponId: galpon.galponId, alPreguntar: widget.alPreguntar),
       ),
     );
   }
@@ -109,6 +112,14 @@ class _SanidadPantallaState extends State<SanidadPantalla> {
                     style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave),
                   ),
                   const SizedBox(height: 16),
+                  if (widget.alPreguntar != null) ...[
+                    FilledButton.icon(
+                      onPressed: () => widget.alPreguntar!(null),
+                      icon: const Icon(Icons.forum_outlined),
+                      label: const Text('Preguntar al asistente'),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   if (estado.sinResolver.isNotEmpty) ...[
                     AvisoSinEnviar(
                       porEnviar: estado.porEnviar,
@@ -128,7 +139,7 @@ class _SanidadPantallaState extends State<SanidadPantalla> {
                         child: Text('Avisos', style: textos.titleLarge),
                       ),
                       for (final alerta in panorama.alertas) ...[
-                        TarjetaAlerta(alerta: alerta, conGalpon: true),
+                        TarjetaAlerta(alerta: alerta, conGalpon: true, alPreguntar: widget.alPreguntar),
                         const SizedBox(height: 10),
                       ],
                       const SizedBox(height: 8),
@@ -180,10 +191,11 @@ class _TodoBien extends StatelessWidget {
 }
 
 class TarjetaAlerta extends StatefulWidget {
-  const TarjetaAlerta({super.key, required this.alerta, this.conGalpon = false});
+  const TarjetaAlerta({super.key, required this.alerta, this.conGalpon = false, this.alPreguntar});
 
   final AlertaSanidad alerta;
   final bool conGalpon;
+  final void Function(String? pregunta)? alPreguntar;
 
   @override
   State<TarjetaAlerta> createState() => _TarjetaAlertaState();
@@ -261,6 +273,15 @@ class _TarjetaAlertaState extends State<TarjetaAlerta> {
                           'Es una guía general. Ante la duda, consulta al veterinario.',
                           style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: estilo.color),
                         ),
+                        if (widget.alPreguntar != null)
+                          TextButton.icon(
+                            onPressed: () => widget.alPreguntar!(
+                              'En el ${alerta.galpon}: ${alerta.titulo}. ${alerta.detalle} ¿Qué puede estar pasando y qué hago?',
+                            ),
+                            icon: const Icon(Icons.forum_outlined),
+                            label: const Text('Preguntar al asistente'),
+                            style: TextButton.styleFrom(foregroundColor: estilo.color, minimumSize: const Size(0, 48)),
+                          ),
                       ],
                     ),
                   ),
@@ -405,10 +426,11 @@ class _SinLotes extends StatelessWidget {
 }
 
 class GalponSanidadPantalla extends StatelessWidget {
-  const GalponSanidadPantalla({super.key, required this.estado, required this.galponId});
+  const GalponSanidadPantalla({super.key, required this.estado, required this.galponId, this.alPreguntar});
 
   final EstadoSanidad estado;
   final int galponId;
+  final void Function(String? pregunta)? alPreguntar;
 
   @override
   Widget build(BuildContext context) {
@@ -433,7 +455,12 @@ class GalponSanidadPantalla extends StatelessWidget {
           body: SafeArea(
             child: galpon == null
                 ? Center(child: Text('Este galpón ya no tiene un lote activo.', style: textos.bodyLarge))
-                : _Detalle(estado: estado, galpon: galpon, alertas: panorama!.deGalpon(galponId)),
+                : _Detalle(
+                    estado: estado,
+                    galpon: galpon,
+                    alertas: panorama!.deGalpon(galponId),
+                    alPreguntar: alPreguntar,
+                  ),
           ),
         );
       },
@@ -442,14 +469,15 @@ class GalponSanidadPantalla extends StatelessWidget {
 }
 
 class _Detalle extends StatelessWidget {
-  const _Detalle({required this.estado, required this.galpon, required this.alertas});
+  const _Detalle({required this.estado, required this.galpon, required this.alertas, this.alPreguntar});
 
   final EstadoSanidad estado;
   final GalponSanidad galpon;
   final List<AlertaSanidad> alertas;
+  final void Function(String? pregunta)? alPreguntar;
 
   Future<void> _aplicar(BuildContext context, TareaSanitaria tarea) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -464,7 +492,7 @@ class _Detalle extends StatelessWidget {
   }
 
   Future<void> _pesar(BuildContext context) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -521,7 +549,7 @@ class _Detalle extends StatelessWidget {
           style: textos.bodyLarge?.copyWith(color: Colores.tintaSuave),
         ),
         const SizedBox(height: 16),
-        for (final a in alertas) ...[TarjetaAlerta(alerta: a), const SizedBox(height: 10)],
+        for (final a in alertas) ...[TarjetaAlerta(alerta: a, alPreguntar: alPreguntar), const SizedBox(height: 10)],
         if (alertas.isNotEmpty) const SizedBox(height: 6),
         _Crecimiento(galpon: galpon, alPesar: () => _pesar(context)),
         const SizedBox(height: 16),

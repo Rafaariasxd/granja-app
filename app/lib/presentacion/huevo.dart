@@ -8,6 +8,7 @@ import 'fecha_texto.dart';
 import 'formato.dart';
 import 'sin_enviar.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 class HuevoPantalla extends StatefulWidget {
   const HuevoPantalla({super.key, required this.estado});
@@ -28,7 +29,7 @@ class _HuevoPantallaState extends State<HuevoPantalla> {
   }
 
   Future<void> _abrir(Widget Function(BuildContext) hoja, String guardado) async {
-    final resultado = await showModalBottomSheet<bool>(
+    final resultado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -42,7 +43,7 @@ class _HuevoPantallaState extends State<HuevoPantalla> {
   }
 
   Future<void> _categoria(ExistenciaHuevo existencia) async {
-    final accion = await showModalBottomSheet<_Accion>(
+    final accion = await abrirHoja<_Accion>(
       context: context,
       backgroundColor: Colores.cal,
       builder: (contexto) => SafeArea(
@@ -115,7 +116,7 @@ class _HuevoPantallaState extends State<HuevoPantalla> {
     }
   }
 
-  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+  Future<void> _verSinEnviar() => abrirHoja<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colores.cal,
@@ -381,16 +382,24 @@ class _Hoja extends StatelessWidget {
 }
 
 class _Numero extends StatelessWidget {
-  const _Numero({required this.controlador, required this.etiqueta, required this.alCambiar, this.grande = false});
+  const _Numero({
+    required this.controlador,
+    required this.etiqueta,
+    required this.alCambiar,
+    this.grande = false,
+    this.clave,
+  });
 
   final TextEditingController controlador;
   final String etiqueta;
   final VoidCallback alCambiar;
   final bool grande;
+  final String? clave;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      key: clave == null ? null : ValueKey<String>(clave!),
       controller: controlador,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(grande ? 10 : 5)],
@@ -438,15 +447,30 @@ class _CamposCantidad extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _Numero(controlador: cantidad.cajas, etiqueta: '${prefijo}Cajas', alCambiar: alCambiar),
+          child: _Numero(
+            controlador: cantidad.cajas,
+            etiqueta: 'Cajas',
+            clave: '${prefijo}Cajas',
+            alCambiar: alCambiar,
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _Numero(controlador: cantidad.cartones, etiqueta: '${prefijo}Cartones', alCambiar: alCambiar),
+          child: _Numero(
+            controlador: cantidad.cartones,
+            etiqueta: 'Cartones',
+            clave: '${prefijo}Cartones',
+            alCambiar: alCambiar,
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _Numero(controlador: cantidad.sueltos, etiqueta: '${prefijo}Huevos', alCambiar: alCambiar),
+          child: _Numero(
+            controlador: cantidad.sueltos,
+            etiqueta: 'Huevos',
+            clave: '${prefijo}Huevos',
+            alCambiar: alCambiar,
+          ),
         ),
       ],
     );
@@ -685,14 +709,14 @@ class _HojaVentaState extends State<_HojaVenta> with _Guardado {
           ),
           const SizedBox(height: 6),
           Text(
-            sugerido == null
-                ? (lineas.isEmpty
-                      ? 'Escribe cuánto huevo sale.'
-                      : 'Falta el precio de alguna categoría: escribe el total.')
+            lineas.isEmpty
+                ? 'Escribe cuánto huevo sale.'
+                : sugerido == null
+                ? 'Falta el precio de alguna categoría: escribe el total.'
                 : 'Según los precios: ${pesos(sugerido)}',
             style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
           ),
-        ] else if (sugerido != null)
+        ] else if (sugerido != null && lineas.isNotEmpty)
           Text('Si se vende todo serían ${pesos(sugerido)}', style: textos.bodyLarge),
         mensajeDeError(),
         const SizedBox(height: 16),
@@ -887,6 +911,91 @@ class _HojaCierreState extends State<_HojaCierre> with _Guardado {
           if (_errorAnular != null)
             Text(_errorAnular!, style: const TextStyle(fontSize: 16, color: Colores.urgenteTexto)),
         ],
+      ],
+    );
+  }
+}
+
+class HojaHuevoDelDia extends StatefulWidget {
+  const HojaHuevoDelDia({super.key, required this.estado, required this.origen, required this.recogidos});
+
+  final EstadoHuevos estado;
+  final String origen;
+  final int recogidos;
+
+  @override
+  State<HojaHuevoDelDia> createState() => _HojaHuevoDelDiaState();
+}
+
+class _HojaHuevoDelDiaState extends State<HojaHuevoDelDia> with _Guardado {
+  late final List<ExistenciaHuevo> _categorias = [
+    for (final e in widget.estado.bodega?.existencias ?? const <ExistenciaHuevo>[])
+      if (e.activa) e,
+  ];
+  late final Map<int, _Cantidad> _cantidades = {for (final e in _categorias) e.categoriaId: _Cantidad()};
+
+  @override
+  void dispose() {
+    for (final c in _cantidades.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Map<int, int> get _lineas => {
+    for (final MapEntry(key: c, value: cantidad) in _cantidades.entries)
+      if (cantidad.huevos > 0) c: cantidad.huevos,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final total = _lineas.values.fold(0, (suma, h) => suma + h);
+    final pasa = total > widget.recogidos;
+    return _Hoja(
+      titulo: '¿Pasar el huevo a la bodega?',
+      subtitulo:
+          'En ${widget.origen} se recogieron ${miles(widget.recogidos)} huevos '
+          '(${empaqueTexto(widget.recogidos).toLowerCase()}). Escribe cuánto de cada tamaño entra.',
+      children: [
+        for (final e in _categorias) ...[
+          Text(e.categoria, style: textos.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          _CamposCantidad(
+            cantidad: _cantidades[e.categoriaId]!,
+            prefijo: '${e.categoria} ',
+            alCambiar: () => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Text(
+          total == 0
+              ? 'Todavía no has escrito nada.'
+              : 'Van ${empaqueTexto(total).toLowerCase()} (${miles(total)} de ${miles(widget.recogidos)} huevos)',
+          style: textos.bodyLarge,
+        ),
+        if (pasa)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              'Es más de lo que se recogió en este galpón. Revisa si es correcto.',
+              style: TextStyle(fontSize: 16, color: Colores.revisarTexto),
+            ),
+          ),
+        mensajeDeError(),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: total > 0 && !guardando
+              ? () => guardar(() => widget.estado.ingresarVarios(_lineas, widget.origen))
+              : null,
+          child: const Text('Guardar en la bodega'),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: guardando ? null : () => Navigator.of(context).pop(false),
+          style: TextButton.styleFrom(minimumSize: const Size(0, 52)),
+          child: const Text('Ahora no', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        ),
       ],
     );
   }

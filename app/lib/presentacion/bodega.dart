@@ -9,6 +9,7 @@ import 'etiqueta.dart';
 import 'formato.dart';
 import 'sin_enviar.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 String nombreDeEtapa(Etapa etapa) => switch (etapa) {
   Etapa.cria => 'Pollita',
@@ -51,7 +52,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
   }
 
   Future<void> _abrirInsumo(Bodega bodega, Existencia existencia) async {
-    final accion = await showModalBottomSheet<_AccionInsumo>(
+    final accion = await abrirHoja<_AccionInsumo>(
       context: context,
       backgroundColor: Colores.cal,
       builder: (_) => _HojaInsumo(existencia: existencia),
@@ -68,7 +69,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
   }
 
   Future<void> _comprar(Bodega bodega, Existencia existencia) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -80,7 +81,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
   }
 
   Future<void> _gastar(Bodega bodega, Existencia existencia) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -102,7 +103,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
   Future<void> _contar(Bodega bodega, Existencia existencia) async {
     final kgPorBulto = existencia.insumo.kgPorBulto;
     final actual = existencia.stockKg < 0 ? 0.0 : existencia.stockKg;
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -132,7 +133,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
         .showSnackBar(SnackBar(content: Text(sinEnviar ? '$texto. Se envía cuando haya señal' : texto)));
   }
 
-  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+  Future<void> _verSinEnviar() => abrirHoja<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colores.cal,
@@ -145,7 +146,7 @@ class _BodegaPantallaState extends State<BodegaPantalla> {
   );
 
   Future<void> _preparar(MezclaPosible mezcla, List<Bodega> destinos) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,

@@ -56,8 +56,9 @@ class Montaje {
           'abiertas': <Object?>[],
         }),
         '/categorias-huevo' => _json([
-          {'id': 1, 'nombre': 'AA', 'activa': true},
-          {'id': 2, 'nombre': 'Roto', 'activa': false},
+          {'id': 1, 'nombre': 'AA', 'activa': true, 'orden': 1},
+          {'id': 2, 'nombre': 'Roto', 'activa': false, 'orden': 2},
+          {'id': 3, 'nombre': 'Jumbo', 'activa': true, 'orden': 3},
         ]),
         '/lineas/1/plan' => _json([
           {
@@ -352,6 +353,21 @@ void main() {
     ]);
   });
 
+  testWidgets('volver en una hoja encima de otra cierra solo la de arriba', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.widgetWithText(OutlinedButton, 'Vacunas').first);
+    await pulsar(tester, find.text('Agregar vacuna o cuidado'));
+    expect(find.text('Nueva vacuna o cuidado'), findsOneWidget);
+    await pulsar(tester, find.text('Volver').last);
+    expect(find.text('Nueva vacuna o cuidado'), findsNothing);
+    expect(find.text('Vacunas de Hy-Line Brown'), findsOneWidget);
+    await pulsar(tester, find.text('Volver'));
+    expect(find.text('Vacunas de Hy-Line Brown'), findsNothing);
+    expect(montaje.envios, isEmpty);
+  });
+
   testWidgets('se puede cambiar una vacuna del plan', (tester) async {
     final montaje = Montaje();
     await abrirAlto(tester, montaje);
@@ -423,7 +439,7 @@ void main() {
     await abrirAlto(tester, montaje);
 
     expect(find.text('caja \$ 120.000 · cartón \$ 12.000'), findsOneWidget);
-    expect(find.text('Sin precios todavía'), findsOneWidget);
+    expect(find.text('Sin precios todavía'), findsNWidgets(2));
     await pulsar(tester, find.widgetWithText(OutlinedButton, 'Precios').first);
     expect(find.text('A clientes, cada cartón sale a \$ 10.000'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Precio de la caja al mayorista'), '108000');
@@ -437,6 +453,21 @@ void main() {
       'precio_carton': 12000,
       'precio_mayorista': 108000,
     });
+  });
+
+  testWidgets('los tamaños se reordenan con las flechas', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.arrow_upward).first).onPressed, isNull);
+    await pulsar(tester, find.byTooltip('Subir Jumbo'));
+    await pulsar(tester, find.byTooltip('Subir Jumbo'));
+
+    expect(montaje.envios.take(2), ['PATCH /categorias-huevo/3', 'PATCH /categorias-huevo/2']);
+    expect(montaje.cuerpos.take(2), [
+      {'orden': 2},
+      {'orden': 3},
+    ]);
   });
 
   testWidgets('una categoría se apaga y se prende con el interruptor', (tester) async {

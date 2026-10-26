@@ -212,12 +212,25 @@ class ApiGranja {
 
   Future<void> crearCategoriaHuevo(String nombre) => _mandar('POST', 'categorias-huevo', {'nombre': nombre});
 
-  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
-      _mandar('PATCH', 'categorias-huevo/$id', {'nombre': ?nombre, 'activa': ?activa});
+  Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa, int? orden}) =>
+      _mandar('PATCH', 'categorias-huevo/$id', {'nombre': ?nombre, 'activa': ?activa, 'orden': ?orden});
 
   Future<String> _leerRuta(Uri url) async {
     final respuesta = await _enviar(() => _cliente.get(url, headers: _autorizacion()));
     return utf8.decode(respuesta.bodyBytes);
+  }
+
+  Future<String> preguntarAlAsistente(Map<String, Object?> cuerpo) async {
+    final respuesta = await _enviar(
+      () => _cliente.post(
+        base.resolve('asistente'),
+        headers: {'Content-Type': 'application/json', ..._autorizacion()},
+        body: jsonEncode(cuerpo),
+      ),
+      limite: const Duration(seconds: 90),
+    );
+    final datos = jsonDecode(utf8.decode(respuesta.bodyBytes)) as Map<String, dynamic>;
+    return datos['respuesta'] as String;
   }
 
   Future<String> huevosJson() => _leerJson('huevos');
@@ -314,10 +327,14 @@ class ApiGranja {
     );
   }
 
-  Future<http.Response> _enviar(Future<http.Response> Function() peticion, {bool alEntrar = false}) async {
+  Future<http.Response> _enviar(
+    Future<http.Response> Function() peticion, {
+    bool alEntrar = false,
+    Duration? limite,
+  }) async {
     final http.Response respuesta;
     try {
-      respuesta = await peticion().timeout(espera);
+      respuesta = await peticion().timeout(limite ?? espera);
     } on http.ClientException {
       throw const SinConexion();
     } on TimeoutException {
