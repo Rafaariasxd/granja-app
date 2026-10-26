@@ -8,6 +8,7 @@ import 'fecha_texto.dart';
 import 'formato.dart';
 import 'sin_enviar.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 class HuevoPantalla extends StatefulWidget {
   const HuevoPantalla({super.key, required this.estado});
@@ -28,7 +29,7 @@ class _HuevoPantallaState extends State<HuevoPantalla> {
   }
 
   Future<void> _abrir(Widget Function(BuildContext) hoja, String guardado) async {
-    final resultado = await showModalBottomSheet<bool>(
+    final resultado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -42,7 +43,7 @@ class _HuevoPantallaState extends State<HuevoPantalla> {
   }
 
   Future<void> _categoria(ExistenciaHuevo existencia) async {
-    final accion = await showModalBottomSheet<_Accion>(
+    final accion = await abrirHoja<_Accion>(
       context: context,
       backgroundColor: Colores.cal,
       builder: (contexto) => SafeArea(
@@ -115,7 +116,7 @@ class _HuevoPantallaState extends State<HuevoPantalla> {
     }
   }
 
-  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+  Future<void> _verSinEnviar() => abrirHoja<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colores.cal,

@@ -9,6 +9,7 @@ import 'fecha_texto.dart';
 import 'formato.dart';
 import 'sin_enviar.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 class _Estilo {
   const _Estilo(this.fondo, this.color, this.icono);
@@ -56,7 +57,7 @@ class _SanidadPantallaState extends State<SanidadPantalla> {
     widget.estado.cargar();
   }
 
-  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+  Future<void> _verSinEnviar() => abrirHoja<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colores.cal,
@@ -476,7 +477,7 @@ class _Detalle extends StatelessWidget {
   final void Function(String? pregunta)? alPreguntar;
 
   Future<void> _aplicar(BuildContext context, TareaSanitaria tarea) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -491,7 +492,7 @@ class _Detalle extends StatelessWidget {
   }
 
   Future<void> _pesar(BuildContext context) async {
-    final guardado = await showModalBottomSheet<bool>(
+    final guardado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,

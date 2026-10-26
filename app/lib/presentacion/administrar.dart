@@ -12,6 +12,7 @@ import 'estado_administracion.dart';
 import 'etiqueta.dart';
 import 'formato.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 String nombreDeTipoInsumo(TipoInsumo tipo) => switch (tipo) {
   TipoInsumo.materiaPrima => 'Materia prima',
@@ -44,7 +45,7 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
   }
 
   Future<void> _abrir(Widget Function(BuildContext) hoja, String guardado) async {
-    final resultado = await showModalBottomSheet<bool>(
+    final resultado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -1077,7 +1078,7 @@ class _HojaPlanState extends State<_HojaPlan> with _Guardado {
     });
 
   Future<void> _editar([TareaDePlan? actual]) async {
-    final nueva = await showModalBottomSheet<TareaDePlan>(
+    final nueva = await abrirHoja<TareaDePlan>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,

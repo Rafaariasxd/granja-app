@@ -45,6 +45,7 @@ import 'presentacion/puerta_de_sesion.dart';
 import 'presentacion/registro.dart';
 import 'presentacion/sanidad.dart';
 import 'presentacion/tema.dart';
+import 'presentacion/hoja.dart';
 
 const _urlApi = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8000');
 
@@ -178,7 +179,7 @@ class GranjaApp extends StatelessWidget {
     final selector = ImagePicker();
     var fuente = ImageSource.gallery;
     if (selector.supportsImageSource(ImageSource.camera)) {
-      final elegida = await showModalBottomSheet<ImageSource>(
+      final elegida = await abrirHoja<ImageSource>(
         context: context,
         builder: (contexto) => SafeArea(
           child: Column(

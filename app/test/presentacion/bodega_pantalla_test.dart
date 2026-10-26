@@ -272,6 +272,20 @@ void main() {
     expect(sinOperacion(montaje.cuerpos.single), {'bodega_id': 2, 'bultos': 1, 'fecha': '2026-10-25'});
   });
 
+  testWidgets('cada hoja tiene un botón para volver', (tester) async {
+    await abrir(tester, Montaje());
+    await elegir(tester, 'Bodega de materia prima');
+
+    await tester.tap(find.text('Maíz'));
+    await tester.pumpAndSettle();
+    expect(find.text('Llegó (compra)'), findsOneWidget);
+    await tester.tap(find.text('Volver'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Llegó (compra)'), findsNothing);
+    expect(find.text('Materias primas'), findsOneWidget);
+  });
+
   testWidgets('el alimento preparado no se compra', (tester) async {
     await abrir(tester, Montaje());
 

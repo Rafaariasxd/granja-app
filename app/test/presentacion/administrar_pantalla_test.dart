@@ -353,6 +353,21 @@ void main() {
     ]);
   });
 
+  testWidgets('volver en una hoja encima de otra cierra solo la de arriba', (tester) async {
+    final montaje = Montaje();
+    await abrirAlto(tester, montaje);
+
+    await pulsar(tester, find.widgetWithText(OutlinedButton, 'Vacunas').first);
+    await pulsar(tester, find.text('Agregar vacuna o cuidado'));
+    expect(find.text('Nueva vacuna o cuidado'), findsOneWidget);
+    await pulsar(tester, find.text('Volver').last);
+    expect(find.text('Nueva vacuna o cuidado'), findsNothing);
+    expect(find.text('Vacunas de Hy-Line Brown'), findsOneWidget);
+    await pulsar(tester, find.text('Volver'));
+    expect(find.text('Vacunas de Hy-Line Brown'), findsNothing);
+    expect(montaje.envios, isEmpty);
+  });
+
   testWidgets('se puede cambiar una vacuna del plan', (tester) async {
     final montaje = Montaje();
     await abrirAlto(tester, montaje);

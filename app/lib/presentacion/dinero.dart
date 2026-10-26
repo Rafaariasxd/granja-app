@@ -8,6 +8,7 @@ import 'fecha_texto.dart';
 import 'formato.dart';
 import 'sin_enviar.dart';
 import 'tema.dart';
+import 'hoja.dart';
 
 const _meses = [
   'enero',
@@ -44,7 +45,7 @@ class _DineroPantallaState extends State<DineroPantalla> {
   }
 
   Future<void> _abrir(Widget Function(BuildContext) hoja, String guardado) async {
-    final resultado = await showModalBottomSheet<bool>(
+    final resultado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
@@ -57,7 +58,7 @@ class _DineroPantallaState extends State<DineroPantalla> {
     }
   }
 
-  Future<void> _verSinEnviar() => showModalBottomSheet<void>(
+  Future<void> _verSinEnviar() => abrirHoja<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colores.cal,
@@ -70,7 +71,7 @@ class _DineroPantallaState extends State<DineroPantalla> {
   );
 
   Future<void> _ver(MovimientoDinero movimiento) async {
-    final borrado = await showModalBottomSheet<bool>(
+    final borrado = await abrirHoja<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colores.cal,
