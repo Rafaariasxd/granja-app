@@ -1,11 +1,14 @@
 from collections.abc import Iterator
+from functools import cache
 from typing import Annotated
 
 from fastapi import Depends, Header
 
 from app.adaptadores.db.conexion import SessionLocal
 from app.adaptadores.db.repositorios import UnidadDeTrabajoSql
+from app.adaptadores.ia.gemini import Gemini
 from app.casos_uso import usuarios
+from app.casos_uso.asistente import Asesor
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio.errores import NoAutenticado
 from app.dominio.modelos import Usuario
@@ -33,3 +36,8 @@ def usuario_actual(
 def administrador(usuario: Annotated[Usuario, Depends(usuario_actual)]) -> Usuario:
     usuarios.exigir_administrador(usuario)
     return usuario
+
+
+@cache
+def asesor() -> Asesor:
+    return Gemini.desde_entorno()

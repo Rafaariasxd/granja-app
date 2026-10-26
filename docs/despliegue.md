@@ -20,6 +20,10 @@ docker compose exec api python -m app.crear_admin    # primer administrador
 
 Al arrancar, la API aplica sola las migraciones (`alembic upgrade head`). Se comprueba con `https://DOMINIO/salud`.
 
+## Asistente de las aves
+
+El asistente usa la capa gratuita de Gemini. Se saca una clave en [Google AI Studio](https://aistudio.google.com/apikey) y se pone en `GEMINI_API_KEY` dentro del `.env`. La clave queda solo en el servidor: la app nunca la ve. Sin clave, la app avisa que el asistente no está configurado y todo lo demás funciona igual. El modelo se cambia con `GEMINI_MODELO`.
+
 ## Actualizar
 
 ```bash

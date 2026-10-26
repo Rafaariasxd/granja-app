@@ -24,3 +24,7 @@ class SinPermiso(ErrorDeDominio):
 
 class Bloqueado(ErrorDeDominio):
     pass
+
+
+class ServicioNoDisponible(ErrorDeDominio):
+    pass

@@ -1,3 +1,5 @@
+import base64
+import binascii
 import uuid
 from datetime import UTC, date, datetime
 from typing import Annotated
@@ -5,10 +7,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.adaptadores.api import esquemas
-from app.adaptadores.api.dependencias import administrador, token_de_sesion, unidad_de_trabajo, usuario_actual
-from app.casos_uso import finanzas, galpones, huevos, inventario, lineas, lotes, registros, sanidad, usuarios
+from app.adaptadores.api.dependencias import administrador, asesor, token_de_sesion, unidad_de_trabajo, usuario_actual
+from app.casos_uso import asistente, finanzas, galpones, huevos, inventario, lineas, lotes, registros, sanidad, usuarios
+from app.casos_uso.asistente import Asesor
 from app.casos_uso.puertos import UnidadDeTrabajo
 from app.dominio import fechas
+from app.dominio.asistente import Imagen, Mensaje
 from app.dominio.finanzas import MovimientoDinero
 from app.dominio.huevos import EstadoSalida, PrecioHuevo
 from app.dominio.modelos import Etapa, Ingrediente, Lote, Usuario
@@ -458,3 +462,15 @@ def vender_huevo(salida_id: uuid.UUID, datos: esquemas.VentaHuevoIn, uow: Unidad
         salida_id, datos.fecha or _hoy(), datos.tipo_venta, datos.cliente, _lineas(datos.lineas)
     )
     return huevos.vender(uow, quien, salida, datos.valor_cobrado)
+
+
+@protegido.post("/asistente", response_model=esquemas.RespuestaOut)
+def preguntar_al_asistente(datos: esquemas.PreguntaIn, uow: UnidadDep, consejero: Annotated[Asesor, Depends(asesor)]):
+    imagen = None
+    if datos.imagen is not None:
+        try:
+            imagen = Imagen(datos.imagen.tipo, base64.b64decode(datos.imagen.datos_base64, validate=True))
+        except binascii.Error as error:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "la foto no se pudo leer") from error
+    mensajes = [Mensaje(m.rol, m.texto) for m in datos.mensajes]
+    return esquemas.RespuestaOut(respuesta=asistente.preguntar(uow, consejero, mensajes, imagen, _hoy()))

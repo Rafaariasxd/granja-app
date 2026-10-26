@@ -3,6 +3,8 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.dominio.asistente import MAX_TEXTO
+from app.dominio.asistente import Rol as RolMensaje
 from app.dominio.finanzas import Rubro, TipoMovimiento
 from app.dominio.huevos import EstadoSalida, MotivoHuevo, TipoVenta, a_huevos
 from app.dominio.modelos import Etapa, Motivo, Rol, TipoBodega, TipoInsumo
@@ -524,3 +526,22 @@ class BodegaHuevoOut(BaseModel):
     existencias: list[ExistenciaHuevoOut]
     precios: list[PrecioHuevoIo]
     abiertas: list[SalidaHuevoOut]
+
+
+class MensajeIn(BaseModel):
+    rol: RolMensaje
+    texto: str = Field(max_length=MAX_TEXTO)
+
+
+class ImagenIn(BaseModel):
+    tipo: str = Field(max_length=30)
+    datos_base64: str = Field(max_length=6_000_000)
+
+
+class PreguntaIn(BaseModel):
+    mensajes: list[MensajeIn] = Field(min_length=1)
+    imagen: ImagenIn | None = None
+
+
+class RespuestaOut(BaseModel):
+    respuesta: str
