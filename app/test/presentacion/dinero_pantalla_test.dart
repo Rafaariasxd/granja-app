@@ -197,6 +197,13 @@ void main() {
     expect(find.text('\$ -1.000.000'), findsOneWidget);
   });
 
+  testWidgets('el huevo ya no se vende aquí sino en la pestaña Huevo', (tester) async {
+    await abrir(tester, Montaje());
+
+    expect(find.text('Vendí huevos'), findsNothing);
+    expect(find.textContaining('pestaña Huevo'), findsOneWidget);
+  });
+
   testWidgets('lista los movimientos con su signo y su cliente', (tester) async {
     await abrir(tester, Montaje());
 
@@ -205,71 +212,6 @@ void main() {
     expect(find.textContaining('La Esperanza'), findsOneWidget);
     expect(find.text('Camión de ponedora'), findsOneWidget);
     expect(find.text('- \$ 3.000.000'), findsOneWidget);
-  });
-
-  testWidgets('vender huevos en cubetas manda los huevos, el total y la categoría', (tester) async {
-    final montaje = Montaje();
-    await abrir(tester, montaje);
-
-    await pulsar(tester, find.text('Vendí huevos'));
-    expect(find.widgetWithText(ChoiceChip, 'Roto'), findsNothing);
-    await pulsar(tester, find.widgetWithText(ChoiceChip, 'A'));
-    await tester.enterText(find.widgetWithText(TextField, '¿Cuántas cubetas?'), '10');
-    await tester.enterText(find.widgetWithText(TextField, 'Total cobrado'), '60000');
-    await tester.enterText(find.widgetWithText(TextField, 'Cliente (opcional)'), 'Doña Rosa');
-    await tester.pump();
-    expect(find.text('Son 300 huevos'), findsOneWidget);
-    expect(find.text('\$ 60.000 · \$ 200 cada huevo'), findsOneWidget);
-    await pulsar(tester, find.text('Guardar venta'));
-
-    expect(montaje.peticiones.where((p) => p.startsWith('PUT /finanzas/')), hasLength(1));
-    expect(montaje.cuerpos.single, {
-      'fecha': '2026-10-25',
-      'rubro': 'venta_huevo',
-      'valor': 60000,
-      'descripcion': '',
-      'lote_id': null,
-      'categoria_id': 2,
-      'cantidad_huevos': 300,
-      'contraparte': 'Doña Rosa',
-    });
-    expect(find.text('Venta guardada'), findsOneWidget);
-  });
-
-  testWidgets('también se puede vender por huevos sueltos', (tester) async {
-    final montaje = Montaje();
-    await abrir(tester, montaje);
-
-    await pulsar(tester, find.text('Vendí huevos'));
-    await pulsar(tester, find.widgetWithText(ChoiceChip, 'Huevos'));
-    await tester.enterText(find.widgetWithText(TextField, '¿Cuántos huevos?'), '45');
-    await tester.enterText(find.widgetWithText(TextField, 'Total cobrado'), '13500');
-    await tester.pump();
-    await pulsar(tester, find.text('Guardar venta'));
-
-    expect(montaje.cuerpos.single['cantidad_huevos'], 45);
-    expect(montaje.cuerpos.single['categoria_id'], 1);
-  });
-
-  testWidgets('no deja guardar una venta sin cantidad o sin total', (tester) async {
-    await abrir(tester, Montaje());
-    await pulsar(tester, find.text('Vendí huevos'));
-
-    FilledButton boton() => tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Guardar venta'));
-    expect(boton().onPressed, isNull);
-    await tester.enterText(find.widgetWithText(TextField, '¿Cuántas cubetas?'), '10');
-    await tester.pump();
-    expect(boton().onPressed, isNull);
-    await tester.enterText(find.widgetWithText(TextField, 'Total cobrado'), '60000');
-    await tester.pump();
-    expect(boton().onPressed, isNotNull);
-  });
-
-  testWidgets('sin categorías de huevo no se puede vender y dice qué hacer', (tester) async {
-    await abrir(tester, Montaje(categoriasDelServidor: []));
-
-    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Vendí huevos')).onPressed, isNull);
-    expect(find.textContaining('crear las categorías en Administrar'), findsOneWidget);
   });
 
   testWidgets('vender gallinas guarda la cantidad en el detalle y el galpón de donde salieron', (tester) async {
@@ -310,7 +252,7 @@ void main() {
     expect(find.text('Gasto guardado'), findsOneWidget);
   });
 
-  testWidgets('sin señal una venta queda guardada y se envía sola cuando vuelve', (tester) async {
+  testWidgets('sin señal un gasto queda guardado y se envía solo cuando vuelve', (tester) async {
     var hayRed = true;
     final montaje = Montaje(
       servidor: (p) {
@@ -328,19 +270,15 @@ void main() {
     await abrir(tester, montaje);
     hayRed = false;
 
-    await pulsar(tester, find.text('Vendí huevos'));
-    await tester.enterText(find.widgetWithText(TextField, '¿Cuántas cubetas?'), '2');
-    await tester.enterText(find.widgetWithText(TextField, 'Total cobrado'), '18000');
+    await pulsar(tester, find.text('Gasté'));
+    await tester.enterText(find.widgetWithText(TextField, '¿Cuánto fue?'), '18000');
     await tester.pump();
-    await pulsar(tester, find.text('Guardar venta'));
+    await pulsar(tester, find.text('Guardar gasto'));
 
-    expect(find.text('Venta guardada. Se envía cuando haya señal'), findsOneWidget);
+    expect(find.text('Gasto guardado. Se envía cuando haya señal'), findsOneWidget);
     expect(find.text('1 cosa sin enviar'), findsOneWidget);
     final guardada = (await montaje.operaciones.sinResolver()).single;
-    expect(
-      (guardada.tipo, guardada.rubro, guardada.valor, guardada.huevos),
-      (TipoOperacion.dinero, 'venta_huevo', 18000, 60),
-    );
+    expect((guardada.tipo, guardada.rubro, guardada.valor), (TipoOperacion.dinero, 'alimento', 18000));
 
     hayRed = true;
     await montaje.estado.cargar();

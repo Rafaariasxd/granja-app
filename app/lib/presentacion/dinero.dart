@@ -128,13 +128,6 @@ class _DineroPantallaState extends State<DineroPantalla> {
                   else ...[
                     _Resumen(resumen: panorama.resumen),
                     const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: panorama.categoriasActivas.isEmpty
-                          ? null
-                          : () => _abrir((_) => _HojaVentaHuevos(estado: estado, panorama: panorama), 'Venta guardada'),
-                      child: const Text('Vendí huevos'),
-                    ),
-                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
@@ -154,14 +147,13 @@ class _DineroPantallaState extends State<DineroPantalla> {
                         ),
                       ],
                     ),
-                    if (panorama.categoriasActivas.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Para vender huevo, el administrador debe crear las categorías en Administrar.',
-                          style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'El huevo se vende en la pestaña Huevo, para que la bodega cuadre.',
+                        style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave),
                       ),
+                    ),
                     const SizedBox(height: 20),
                     if (panorama.resumen.huevos.isNotEmpty) ...[
                       Padding(
@@ -711,96 +703,6 @@ mixin _Guardado<T extends StatefulWidget> on State<T> {
 }
 
 int _entero(TextEditingController c) => int.tryParse(c.text) ?? 0;
-
-class _HojaVentaHuevos extends StatefulWidget {
-  const _HojaVentaHuevos({required this.estado, required this.panorama});
-
-  final EstadoFinanzas estado;
-  final PanoramaDinero panorama;
-
-  @override
-  State<_HojaVentaHuevos> createState() => _HojaVentaHuevosState();
-}
-
-class _HojaVentaHuevosState extends State<_HojaVentaHuevos> with _Guardado {
-  final _cantidad = TextEditingController();
-  final _valor = TextEditingController();
-  final _cliente = TextEditingController();
-  late CategoriaHuevo _categoria = widget.panorama.categoriasActivas.first;
-  bool _enCubetas = true;
-
-  @override
-  void dispose() {
-    _cantidad.dispose();
-    _valor.dispose();
-    _cliente.dispose();
-    super.dispose();
-  }
-
-  int get _huevos => _entero(_cantidad) * (_enCubetas ? huevosPorCubeta : 1);
-
-  bool get _valido => _huevos > 0 && _entero(_valor) > 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final textos = Theme.of(context).textTheme;
-    final valor = _entero(_valor);
-    return _Hoja(
-      titulo: 'Vendí huevos',
-      children: [
-        Text('¿De qué categoría?', style: textos.bodyLarge),
-        const SizedBox(height: 8),
-        _Opciones<CategoriaHuevo>(
-          opciones: [for (final c in widget.panorama.categoriasActivas) (c, c.nombre)],
-          elegida: _categoria,
-          alElegir: (c) => setState(() => _categoria = c),
-        ),
-        const SizedBox(height: 16),
-        _Opciones<bool>(
-          opciones: const [(true, 'Cubetas de 30'), (false, 'Huevos')],
-          elegida: _enCubetas,
-          alElegir: (v) => setState(() => _enCubetas = v),
-        ),
-        const SizedBox(height: 12),
-        _Numero(
-          controlador: _cantidad,
-          etiqueta: _enCubetas ? '¿Cuántas cubetas?' : '¿Cuántos huevos?',
-          autofoco: true,
-          alCambiar: () => setState(() {}),
-        ),
-        if (_enCubetas && _huevos > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text('Son ${miles(_huevos)} huevos', style: textos.bodyLarge),
-          ),
-        const SizedBox(height: 12),
-        _Numero(controlador: _valor, etiqueta: 'Total cobrado', sufijo: 'pesos', alCambiar: () => setState(() {})),
-        if (_huevos > 0 && valor > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text('${pesos(valor.toDouble())} · ${pesos(valor / _huevos)} cada huevo', style: textos.bodyLarge),
-          ),
-        const SizedBox(height: 12),
-        _Texto(controlador: _cliente, etiqueta: 'Cliente (opcional)'),
-        mensajeDeError(),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _valido && !guardando
-              ? () => guardar(
-                  () => widget.estado.venderHuevos(
-                    categoria: _categoria,
-                    huevos: _huevos,
-                    valor: valor.toDouble(),
-                    cliente: _cliente.text.trim(),
-                  ),
-                )
-              : null,
-          child: const Text('Guardar venta'),
-        ),
-      ],
-    );
-  }
-}
 
 class _HojaVentaGallinas extends StatefulWidget {
   const _HojaVentaGallinas({required this.estado, required this.panorama});

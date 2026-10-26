@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../dominio/administracion.dart';
 import '../dominio/finanzas.dart';
+import '../dominio/huevos.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
 import '../dominio/sanidad.dart';
@@ -140,6 +141,11 @@ class _AdministrarPantallaState extends State<AdministrarPantalla> {
                     for (final c in catalogo.categoriasHuevo) ...[
                       _CategoriaFila(
                         categoria: c,
+                        precio: catalogo.precioDe(c.id),
+                        alPrecio: () => _abrir(
+                          (_) => _HojaPrecioHuevo(estado: estado, categoria: c, actual: catalogo.precioDe(c.id)),
+                          'Precios guardados',
+                        ),
                         alNombre: () =>
                             _abrir((_) => _HojaCategoriaNombre(estado: estado, categoria: c), 'Nombre guardado'),
                         alActivar: (activa) => estado.cambiarCategoriaHuevo(c.id, activa: activa),
@@ -386,30 +392,62 @@ class _RazaFila extends StatelessWidget {
 }
 
 class _CategoriaFila extends StatelessWidget {
-  const _CategoriaFila({required this.categoria, required this.alNombre, required this.alActivar});
+  const _CategoriaFila({
+    required this.categoria,
+    required this.precio,
+    required this.alPrecio,
+    required this.alNombre,
+    required this.alActivar,
+  });
 
   final CategoriaHuevo categoria;
+  final PrecioHuevo? precio;
+  final VoidCallback alPrecio;
   final VoidCallback alNombre;
   final void Function(bool activa) alActivar;
+
+  String get _precios {
+    final p = precio;
+    if (p == null || (p.precioCaja == null && p.precioCarton == null && p.precioMayorista == null)) {
+      return 'Sin precios todavía';
+    }
+    return [
+      if (p.precioCaja != null) 'caja ${pesos(p.precioCaja!)}',
+      if (p.precioCarton != null) 'cartón ${pesos(p.precioCarton!)}',
+      if (p.precioMayorista != null) 'mayorista ${pesos(p.precioMayorista!)}',
+    ].join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
     final textos = Theme.of(context).textTheme;
     return _Tarjeta(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              categoria.nombre,
-              style: textos.titleLarge?.copyWith(color: categoria.activa ? Colores.tinta : Colores.tintaSuave),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  categoria.nombre,
+                  style: textos.titleLarge?.copyWith(color: categoria.activa ? Colores.tinta : Colores.tintaSuave),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Cambiar el nombre de ${categoria.nombre}',
+                onPressed: alNombre,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              Switch(value: categoria.activa, onChanged: alActivar, activeThumbColor: Colores.monte),
+            ],
           ),
-          IconButton(
-            tooltip: 'Cambiar el nombre de ${categoria.nombre}',
-            onPressed: alNombre,
-            icon: const Icon(Icons.edit_outlined),
+          Text(_precios, style: textos.bodyMedium?.copyWith(color: Colores.tintaSuave)),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: alPrecio,
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            child: const Text('Precios'),
           ),
-          Switch(value: categoria.activa, onChanged: alActivar, activeThumbColor: Colores.monte),
         ],
       ),
     );
@@ -1357,6 +1395,92 @@ class _HojaCategoriaNombreState extends State<_HojaCategoriaNombre> with _Guarda
                     guardar(() => widget.estado.cambiarCategoriaHuevo(widget.categoria.id, nombre: _nombre.text.trim()))
               : null,
           child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _HojaPrecioHuevo extends StatefulWidget {
+  const _HojaPrecioHuevo({required this.estado, required this.categoria, required this.actual});
+
+  final EstadoAdministracion estado;
+  final CategoriaHuevo categoria;
+  final PrecioHuevo? actual;
+
+  @override
+  State<_HojaPrecioHuevo> createState() => _HojaPrecioHuevoState();
+}
+
+class _HojaPrecioHuevoState extends State<_HojaPrecioHuevo> with _Guardado {
+  late final _caja = TextEditingController(text: _texto(widget.actual?.precioCaja));
+  late final _carton = TextEditingController(text: _texto(widget.actual?.precioCarton));
+  late final _mayorista = TextEditingController(text: _texto(widget.actual?.precioMayorista));
+
+  static String _texto(double? valor) => valor == null ? '' : '${valor.round()}';
+
+  @override
+  void dispose() {
+    _caja.dispose();
+    _carton.dispose();
+    _mayorista.dispose();
+    super.dispose();
+  }
+
+  double? _leer(TextEditingController c) {
+    final valor = leerNumero(c.text);
+    return valor == null || valor <= 0 ? null : valor;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final caja = _leer(_caja);
+    return _Hoja(
+      titulo: 'Precios del huevo ${widget.categoria.nombre}',
+      subtitulo: 'Una caja son 12 cartones de 30 huevos',
+      children: [
+        _Campo(
+          controlador: _caja,
+          etiqueta: 'Precio de la caja (clientes)',
+          sufijo: 'pesos',
+          numerico: true,
+          alCambiar: () => setState(() {}),
+        ),
+        if (caja != null) ...[
+          const SizedBox(height: 4),
+          Text('A clientes, cada cartón sale a ${pesos(caja / cartonesPorCaja)}', style: textos.bodyMedium),
+        ],
+        const SizedBox(height: 12),
+        _Campo(
+          controlador: _carton,
+          etiqueta: 'Precio del cartón (particulares)',
+          sufijo: 'pesos',
+          numerico: true,
+          alCambiar: () => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        _Campo(
+          controlador: _mayorista,
+          etiqueta: 'Precio de la caja al mayorista',
+          sufijo: 'pesos',
+          numerico: true,
+          alCambiar: () => setState(() {}),
+        ),
+        _Error(error),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: guardando
+              ? null
+              : () => guardar(
+                  () => widget.estado.fijarPrecioHuevo(
+                    widget.categoria.id,
+                    caja: caja,
+                    carton: _leer(_carton),
+                    mayorista: _leer(_mayorista),
+                  ),
+                ),
+          child: const Text('Guardar precios'),
         ),
       ],
     );

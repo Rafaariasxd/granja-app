@@ -2,11 +2,13 @@ import 'dart:convert';
 
 import '../dominio/administracion.dart';
 import '../dominio/finanzas.dart';
+import '../dominio/huevos.dart';
 import '../dominio/inventario.dart';
 import '../dominio/modelos.dart';
 import '../dominio/sanidad.dart';
 import 'api_granja.dart';
 import 'json_finanzas.dart';
+import 'json_huevos.dart';
 import 'json_inventario.dart';
 
 class Catalogo {
@@ -17,6 +19,7 @@ class Catalogo {
     this.razas = const [],
     this.plantillas = const [],
     this.categoriasHuevo = const [],
+    this.preciosHuevo = const [],
   });
 
   final Inventario inventario;
@@ -25,6 +28,9 @@ class Catalogo {
   final List<Raza> razas;
   final List<String> plantillas;
   final List<CategoriaHuevo> categoriasHuevo;
+  final List<PrecioHuevo> preciosHuevo;
+
+  PrecioHuevo? precioDe(int categoriaId) => preciosHuevo.where((p) => p.categoriaId == categoriaId).firstOrNull;
 
   Iterable<Insumo> get materiasPrimas => insumos.where((i) => i.tipo == TipoInsumo.materiaPrima);
 
@@ -61,7 +67,12 @@ class RepositorioAdministracion {
       for (final c in jsonDecode(await _api.categoriasHuevoJson()) as List<dynamic>)
         categoriaDesdeJson(c as Map<String, dynamic>),
     ];
+    final huevos = jsonDecode(await _api.huevosJson()) as Map<String, dynamic>;
+    final preciosHuevo = [
+      for (final p in huevos['precios'] as List<dynamic>) precioHuevoDesdeJson(p as Map<String, dynamic>),
+    ];
     return Catalogo(
+      preciosHuevo: preciosHuevo,
       inventario: inventario,
       insumos: insumos,
       galpones: galpones,
@@ -102,6 +113,9 @@ class RepositorioAdministracion {
 
   Future<void> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
       _api.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa);
+
+  Future<void> fijarPrecioHuevo(int categoriaId, {double? caja, double? carton, double? mayorista}) =>
+      _api.fijarPrecioHuevo(categoriaId, caja: caja, carton: carton, mayorista: mayorista);
 
   Future<void> crearRaza(String nombre, String? plantilla) => _api.crearLinea(nombre, plantilla);
 

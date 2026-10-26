@@ -120,6 +120,11 @@ class _OperacionFila extends StatelessWidget {
       TipoOperacion.aplicacion => 'Vacuna',
       TipoOperacion.pesaje => 'Pesaje',
       TipoOperacion.dinero => 'Dinero',
+      TipoOperacion.huevoIngreso => 'Entró huevo',
+      TipoOperacion.huevoBaja => 'Baja de huevo',
+      TipoOperacion.huevoVenta => 'Venta de huevo',
+      TipoOperacion.huevoSalida => 'Salida de huevo',
+      TipoOperacion.huevoCierre => 'Cierre de salida',
     };
     return Container(
       padding: const EdgeInsets.all(14),

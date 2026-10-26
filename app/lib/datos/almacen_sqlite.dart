@@ -6,6 +6,7 @@ import '../dominio/modelos.dart';
 import 'bodega.dart';
 import 'cola.dart';
 import 'finanzas.dart';
+import 'huevos.dart';
 import 'json.dart';
 import 'operaciones.dart';
 import 'resumen.dart';
@@ -137,6 +138,31 @@ class AlmacenFinanzasSqlite implements AlmacenFinanzas {
     final filas = await _db.query('finanzas', where: 'id = ?', whereArgs: [1]);
     if (filas.isEmpty) return null;
     return FinanzasGuardadas(
+      actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
+      datos: filas.single['datos']! as String,
+    );
+  }
+}
+
+class AlmacenHuevosSqlite implements AlmacenHuevos {
+  AlmacenHuevosSqlite(this._db);
+
+  final Database _db;
+
+  @override
+  Future<void> guardar(HuevosGuardados huevos) async {
+    await _db.insert('huevos', {
+      'id': 1,
+      'actualizado_en': huevos.actualizadoEn.toUtc().toIso8601String(),
+      'datos': huevos.datos,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<HuevosGuardados?> ultima() async {
+    final filas = await _db.query('huevos', where: 'id = ?', whereArgs: [1]);
+    if (filas.isEmpty) return null;
+    return HuevosGuardados(
       actualizadoEn: DateTime.parse(filas.single['actualizado_en']! as String),
       datos: filas.single['datos']! as String,
     );

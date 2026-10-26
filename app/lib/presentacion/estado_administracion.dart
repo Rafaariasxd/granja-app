@@ -84,6 +84,9 @@ class EstadoAdministracion extends ChangeNotifier {
   Future<String?> cambiarCategoriaHuevo(int id, {String? nombre, bool? activa}) =>
       _accion(() => _repositorio.cambiarCategoriaHuevo(id, nombre: nombre, activa: activa));
 
+  Future<String?> fijarPrecioHuevo(int categoriaId, {double? caja, double? carton, double? mayorista}) =>
+      _accion(() => _repositorio.fijarPrecioHuevo(categoriaId, caja: caja, carton: carton, mayorista: mayorista));
+
   Future<String?> crearRaza(String nombre, String? plantilla) =>
       _accion(() => _repositorio.crearRaza(nombre, plantilla));
 

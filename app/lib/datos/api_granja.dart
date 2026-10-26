@@ -220,6 +220,38 @@ class ApiGranja {
     return utf8.decode(respuesta.bodyBytes);
   }
 
+  Future<String> huevosJson() => _leerJson('huevos');
+
+  Future<void> ingresarHuevo(String operacionId, int categoriaId, int huevos, String fecha) => _mandar(
+    'POST',
+    'huevos/ingresos',
+    {'operacion_id': operacionId, 'categoria_id': categoriaId, 'huevos': huevos, 'fecha': fecha},
+  );
+
+  Future<void> bajaDeHuevo(String operacionId, int categoriaId, int huevos, String nota, String fecha) => _mandar(
+    'POST',
+    'huevos/bajas',
+    {'operacion_id': operacionId, 'categoria_id': categoriaId, 'huevos': huevos, 'nota': nota, 'fecha': fecha},
+  );
+
+  Future<void> contarHuevo(int categoriaId, int huevos, String nota) =>
+      _mandar('POST', 'huevos/conteos', {'categoria_id': categoriaId, 'huevos': huevos, 'nota': nota});
+
+  Future<void> fijarPrecioHuevo(int categoriaId, {double? caja, double? carton, double? mayorista}) => _mandar(
+    'PUT',
+    'huevos/precios/$categoriaId',
+    {'categoria_id': categoriaId, 'precio_caja': caja, 'precio_carton': carton, 'precio_mayorista': mayorista},
+  );
+
+  Future<void> abrirSalida(String id, Map<String, Object?> cuerpo) => _mandar('PUT', 'huevos/salidas/$id', cuerpo);
+
+  Future<void> cerrarSalida(String id, Map<String, Object?> cuerpo) =>
+      _mandar('POST', 'huevos/salidas/$id/cierre', cuerpo);
+
+  Future<void> anularSalida(String id) => _mandar('POST', 'huevos/salidas/$id/anulacion', const <String, Object?>{});
+
+  Future<void> venderHuevo(String id, Map<String, Object?> cuerpo) => _mandar('PUT', 'huevos/ventas/$id', cuerpo);
+
   Future<String> galponesJson() => _leerJson('galpones');
 
   Future<String> insumosJson() => _leerJson('insumos');

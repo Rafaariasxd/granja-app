@@ -12,6 +12,7 @@ import 'datos/api_granja.dart';
 import 'datos/base_local.dart';
 import 'datos/bodega.dart';
 import 'datos/finanzas.dart';
+import 'datos/huevos.dart';
 import 'datos/buscador_registro.dart';
 import 'datos/resumen.dart';
 import 'datos/sanidad.dart';
@@ -27,6 +28,9 @@ import 'presentacion/estado_bodega.dart';
 import 'presentacion/dinero.dart';
 import 'presentacion/estado_envios.dart';
 import 'presentacion/estado_finanzas.dart';
+import 'presentacion/estado_huevos.dart';
+import 'presentacion/huevo.dart';
+import 'presentacion/seccion_dinero.dart';
 import 'presentacion/estado_inicio.dart';
 import 'presentacion/estado_sanidad.dart';
 import 'presentacion/estado_sesion.dart';
@@ -54,6 +58,7 @@ Future<void> main() async {
   final bodega = EstadoBodega(RepositorioBodega(api, AlmacenBodegaSqlite(base), AlmacenOperacionesSqlite(base)));
   final sanidad = EstadoSanidad(RepositorioSanidad(api, AlmacenSanidadSqlite(base), AlmacenOperacionesSqlite(base)));
   final dinero = EstadoFinanzas(RepositorioFinanzas(api, AlmacenFinanzasSqlite(base), AlmacenOperacionesSqlite(base)));
+  final huevos = EstadoHuevos(RepositorioHuevos(api, AlmacenHuevosSqlite(base), AlmacenOperacionesSqlite(base)));
   final administracion = EstadoAdministracion(RepositorioAdministracion(api));
   sesion
     ..vigilar(envios, () => envios.sesionVencida)
@@ -61,6 +66,7 @@ Future<void> main() async {
     ..vigilar(bodega, () => bodega.sesionVencida)
     ..vigilar(sanidad, () => sanidad.sesionVencida)
     ..vigilar(dinero, () => dinero.sesionVencida)
+    ..vigilar(huevos, () => huevos.sesionVencida)
     ..vigilar(administracion, () => administracion.sesionVencida);
   runApp(
     GranjaApp(
@@ -70,6 +76,7 @@ Future<void> main() async {
       bodega: bodega,
       sanidad: sanidad,
       dinero: dinero,
+      huevos: huevos,
       administracion: administracion,
       api: api,
       buscador: BuscadorRegistro(api, almacen),
@@ -86,6 +93,7 @@ class GranjaApp extends StatelessWidget {
     required this.bodega,
     required this.sanidad,
     required this.dinero,
+    required this.huevos,
     required this.administracion,
     required this.api,
     required this.buscador,
@@ -97,6 +105,7 @@ class GranjaApp extends StatelessWidget {
   final EstadoBodega bodega;
   final EstadoSanidad sanidad;
   final EstadoFinanzas dinero;
+  final EstadoHuevos huevos;
   final EstadoAdministracion administracion;
   final ApiGranja api;
   final BuscadorRegistro buscador;
@@ -115,12 +124,16 @@ class GranjaApp extends StatelessWidget {
             bodega.cargar();
             sanidad.cargar();
             dinero.cargar();
+            huevos.cargar();
             if (sesion.sesion?.esAdministrador ?? false) administracion.cargar();
           },
           child: Cascaron(
             alAbrirBodega: bodega.cargar,
             alAbrirSanidad: sanidad.cargar,
-            alAbrirDinero: dinero.cargar,
+            alAbrirDinero: () {
+              huevos.cargar();
+              dinero.cargar();
+            },
             granja: InicioPantalla(
               estado: inicio,
               envios: envios,
@@ -131,7 +144,11 @@ class GranjaApp extends StatelessWidget {
             ),
             bodega: BodegaPantalla(estado: bodega),
             sanidad: SanidadPantalla(estado: sanidad),
-            dinero: DineroPantalla(estado: dinero, esAdministrador: sesion.sesion?.esAdministrador ?? false),
+            dinero: SeccionDinero(
+              huevo: HuevoPantalla(estado: huevos),
+              cuentas: DineroPantalla(estado: dinero, esAdministrador: sesion.sesion?.esAdministrador ?? false),
+              alCambiar: (_) => dinero.cargar(),
+            ),
             administrar: (sesion.sesion?.esAdministrador ?? false) ? AdministrarPantalla(estado: administracion) : null,
             alAbrirAdministrar: administracion.cargar,
           ),
