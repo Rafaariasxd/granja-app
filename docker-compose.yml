@@ -19,6 +19,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://granja:${POSTGRES_PASSWORD}@db:5432/granja
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODELO: ${GEMINI_MODELO:-gemini-flash-latest}
     depends_on:
       db:
         condition: service_healthy

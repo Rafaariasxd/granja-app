@@ -160,3 +160,13 @@ def test_sin_sesion_no_se_ve_el_dinero(client):
     anonimo = TestClient(app)
     assert anonimo.get("/finanzas/resumen").status_code == 401
     assert anonimo.get("/categorias-huevo").status_code == 401
+
+
+def test_una_categoria_nueva_va_al_final_y_se_puede_mover(client):
+    for nombre in ("AA", "A"):
+        client.post("/categorias-huevo", json={"nombre": nombre})
+    jumbo = client.post("/categorias-huevo", json={"nombre": "Jumbo"}).json()
+    assert [c["nombre"] for c in client.get("/categorias-huevo").json()] == ["AA", "A", "Jumbo"]
+    assert client.patch(f"/categorias-huevo/{jumbo['id']}", json={"orden": 0}).json()["orden"] == 0
+    assert [c["nombre"] for c in client.get("/categorias-huevo").json()] == ["Jumbo", "AA", "A"]
+    assert client.patch(f"/categorias-huevo/{jumbo['id']}", json={"orden": -1}).status_code == 422

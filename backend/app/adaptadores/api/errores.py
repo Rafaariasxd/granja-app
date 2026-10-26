@@ -8,6 +8,7 @@ from app.dominio.errores import (
     ErrorDeDominio,
     NoAutenticado,
     NoEncontrado,
+    ServicioNoDisponible,
     SinPermiso,
 )
 
@@ -18,6 +19,7 @@ CODIGOS = {
     NoAutenticado: status.HTTP_401_UNAUTHORIZED,
     SinPermiso: status.HTTP_403_FORBIDDEN,
     Bloqueado: status.HTTP_429_TOO_MANY_REQUESTS,
+    ServicioNoDisponible: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 

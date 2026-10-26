@@ -40,6 +40,7 @@ def tipo_del_rubro(rubro: Rubro) -> TipoMovimiento:
 class CategoriaHuevo:
     nombre: str
     activa: bool = True
+    orden: int = 0
     id: int | None = None
 
 
