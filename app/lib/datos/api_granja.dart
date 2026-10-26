@@ -220,6 +220,19 @@ class ApiGranja {
     return utf8.decode(respuesta.bodyBytes);
   }
 
+  Future<String> preguntarAlAsistente(Map<String, Object?> cuerpo) async {
+    final respuesta = await _enviar(
+      () => _cliente.post(
+        base.resolve('asistente'),
+        headers: {'Content-Type': 'application/json', ..._autorizacion()},
+        body: jsonEncode(cuerpo),
+      ),
+      limite: const Duration(seconds: 90),
+    );
+    final datos = jsonDecode(utf8.decode(respuesta.bodyBytes)) as Map<String, dynamic>;
+    return datos['respuesta'] as String;
+  }
+
   Future<String> huevosJson() => _leerJson('huevos');
 
   Future<void> ingresarHuevo(String operacionId, int categoriaId, int huevos, String fecha) => _mandar(
@@ -314,10 +327,14 @@ class ApiGranja {
     );
   }
 
-  Future<http.Response> _enviar(Future<http.Response> Function() peticion, {bool alEntrar = false}) async {
+  Future<http.Response> _enviar(
+    Future<http.Response> Function() peticion, {
+    bool alEntrar = false,
+    Duration? limite,
+  }) async {
     final http.Response respuesta;
     try {
-      respuesta = await peticion().timeout(espera);
+      respuesta = await peticion().timeout(limite ?? espera);
     } on http.ClientException {
       throw const SinConexion();
     } on TimeoutException {

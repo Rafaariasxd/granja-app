@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as ruta;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'datos/administracion.dart';
 import 'datos/almacen_sesion_segura.dart';
+import 'datos/asistente.dart';
 import 'datos/almacen_sqlite.dart';
 import 'datos/api_granja.dart';
 import 'datos/base_local.dart';
@@ -18,12 +20,15 @@ import 'datos/resumen.dart';
 import 'datos/sanidad.dart';
 import 'datos/servicio_sesion.dart';
 import 'datos/sincronizador.dart';
+import 'dominio/asistente.dart';
 import 'dominio/modelos.dart';
 import 'presentacion/administrar.dart';
 import 'presentacion/al_reanudar.dart';
+import 'presentacion/asistente.dart';
 import 'presentacion/bodega.dart';
 import 'presentacion/cascaron.dart';
 import 'presentacion/estado_administracion.dart';
+import 'presentacion/estado_asistente.dart';
 import 'presentacion/estado_bodega.dart';
 import 'presentacion/dinero.dart';
 import 'presentacion/estado_envios.dart';
@@ -59,6 +64,7 @@ Future<void> main() async {
   final sanidad = EstadoSanidad(RepositorioSanidad(api, AlmacenSanidadSqlite(base), AlmacenOperacionesSqlite(base)));
   final dinero = EstadoFinanzas(RepositorioFinanzas(api, AlmacenFinanzasSqlite(base), AlmacenOperacionesSqlite(base)));
   final huevos = EstadoHuevos(RepositorioHuevos(api, AlmacenHuevosSqlite(base), AlmacenOperacionesSqlite(base)));
+  final asistente = EstadoAsistente(RepositorioAsistente(api));
   final administracion = EstadoAdministracion(RepositorioAdministracion(api));
   sesion
     ..vigilar(envios, () => envios.sesionVencida)
@@ -67,6 +73,7 @@ Future<void> main() async {
     ..vigilar(sanidad, () => sanidad.sesionVencida)
     ..vigilar(dinero, () => dinero.sesionVencida)
     ..vigilar(huevos, () => huevos.sesionVencida)
+    ..vigilar(asistente, () => asistente.sesionVencida)
     ..vigilar(administracion, () => administracion.sesionVencida);
   runApp(
     GranjaApp(
@@ -77,6 +84,7 @@ Future<void> main() async {
       sanidad: sanidad,
       dinero: dinero,
       huevos: huevos,
+      asistente: asistente,
       administracion: administracion,
       api: api,
       buscador: BuscadorRegistro(api, almacen),
@@ -94,6 +102,7 @@ class GranjaApp extends StatelessWidget {
     required this.sanidad,
     required this.dinero,
     required this.huevos,
+    required this.asistente,
     required this.administracion,
     required this.api,
     required this.buscador,
@@ -106,6 +115,7 @@ class GranjaApp extends StatelessWidget {
   final EstadoSanidad sanidad;
   final EstadoFinanzas dinero;
   final EstadoHuevos huevos;
+  final EstadoAsistente asistente;
   final EstadoAdministracion administracion;
   final ApiGranja api;
   final BuscadorRegistro buscador;
@@ -143,7 +153,7 @@ class GranjaApp extends StatelessWidget {
               alCorregir: (galpon) => _corregir(contexto, galpon),
             ),
             bodega: BodegaPantalla(estado: bodega),
-            sanidad: SanidadPantalla(estado: sanidad),
+            sanidad: SanidadPantalla(estado: sanidad, alPreguntar: (pregunta) => _preguntar(contexto, pregunta)),
             dinero: SeccionDinero(
               huevo: HuevoPantalla(estado: huevos),
               cuentas: DineroPantalla(estado: dinero, esAdministrador: sesion.sesion?.esAdministrador ?? false),
@@ -155,6 +165,45 @@ class GranjaApp extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _preguntar(BuildContext context, String? pregunta) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (contexto) =>
+          AsistentePantalla(estado: asistente, pregunta: pregunta, elegirFoto: () => _elegirFoto(contexto)),
+    ),
+  );
+
+  Future<Foto?> _elegirFoto(BuildContext context) async {
+    final selector = ImagePicker();
+    var fuente = ImageSource.gallery;
+    if (selector.supportsImageSource(ImageSource.camera)) {
+      final elegida = await showModalBottomSheet<ImageSource>(
+        context: context,
+        builder: (contexto) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Tomar una foto', style: TextStyle(fontSize: 18)),
+                onTap: () => Navigator.of(contexto).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Elegir de la galería', style: TextStyle(fontSize: 18)),
+                onTap: () => Navigator.of(contexto).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (elegida == null) return null;
+      fuente = elegida;
+    }
+    final archivo = await selector.pickImage(source: fuente, maxWidth: 1600, maxHeight: 1600, imageQuality: 80);
+    if (archivo == null) return null;
+    return Foto(bytes: await archivo.readAsBytes(), tipo: tipoDeFoto(archivo.name));
   }
 
   Future<void> _registrar(BuildContext context, ResumenGalpon galpon) async {
