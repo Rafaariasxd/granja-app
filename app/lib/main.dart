@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'datos/administracion.dart';
 import 'datos/almacen_sesion_segura.dart';
+import 'datos/api_iot.dart';
 import 'datos/asistente.dart';
 import 'datos/almacen_sqlite.dart';
 import 'datos/api_granja.dart';
@@ -37,7 +38,9 @@ import 'presentacion/estado_finanzas.dart';
 import 'presentacion/estado_huevos.dart';
 import 'presentacion/huevo.dart';
 import 'presentacion/seccion_dinero.dart';
+import 'presentacion/estado_galpon_vivo.dart';
 import 'presentacion/estado_inicio.dart';
+import 'presentacion/galpon_vivo.dart';
 import 'presentacion/estado_sanidad.dart';
 import 'presentacion/estado_sesion.dart';
 import 'presentacion/formulario_registro.dart';
@@ -49,6 +52,10 @@ import 'presentacion/tema.dart';
 import 'presentacion/hoja.dart';
 
 const _urlApi = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8000');
+const _urlIot = String.fromEnvironment(
+  'IOT_URL',
+  defaultValue: 'https://galpon-conectado-jr5qy.mexicocentral.cloudapp.azure.com',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +75,7 @@ Future<void> main() async {
   final huevos = EstadoHuevos(RepositorioHuevos(api, AlmacenHuevosSqlite(base), AlmacenOperacionesSqlite(base)));
   final asistente = EstadoAsistente(RepositorioAsistente(api));
   final administracion = EstadoAdministracion(RepositorioAdministracion(api));
+  final galpon = EstadoGalponVivo(ApiIot(Uri.parse(_urlIot)), AlmacenClaveIotSegura())..cargar();
   sesion
     ..vigilar(envios, () => envios.sesionVencida)
     ..vigilar(inicio, () => inicio.sesionVencida)
@@ -89,6 +97,7 @@ Future<void> main() async {
       asistente: asistente,
       pestana: ValueNotifier<int>(0),
       administracion: administracion,
+      galpon: galpon,
       api: api,
       buscador: BuscadorRegistro(api, almacen),
     ),
@@ -108,6 +117,7 @@ class GranjaApp extends StatelessWidget {
     required this.asistente,
     required this.pestana,
     required this.administracion,
+    required this.galpon,
     required this.api,
     required this.buscador,
   });
@@ -122,6 +132,7 @@ class GranjaApp extends StatelessWidget {
   final EstadoAsistente asistente;
   final ValueNotifier<int> pestana;
   final EstadoAdministracion administracion;
+  final EstadoGalponVivo galpon;
   final ApiGranja api;
   final BuscadorRegistro buscador;
 
@@ -140,6 +151,7 @@ class GranjaApp extends StatelessWidget {
             sanidad.cargar();
             dinero.cargar();
             huevos.cargar();
+            galpon.cargar();
             if (sesion.sesion?.esAdministrador ?? false) administracion.cargar();
           },
           child: Cascaron(
@@ -155,19 +167,25 @@ class GranjaApp extends StatelessWidget {
               envios: envios,
               nombreUsuario: sesion.sesion?.nombre,
               alSalir: sesion.salir,
-              avisos: ListenableBuilder(
-                listenable: Listenable.merge([sanidad, bodega, huevos]),
-                builder: (_, _) => TarjetaAvisosDelDia(
-                  avisos: avisosDelDia(
-                    sanidad: sanidad.panorama,
-                    inventario: bodega.inventario,
-                    huevo: huevos.bodega,
-                    pestanaBodega: 1,
-                    pestanaSanidad: 2,
-                    pestanaDinero: 3,
+              avisos: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TarjetaGalponVivo(estado: galpon, alAbrir: () => _abrirGalpon(contexto)),
+                  ListenableBuilder(
+                    listenable: Listenable.merge([sanidad, bodega, huevos]),
+                    builder: (_, _) => TarjetaAvisosDelDia(
+                      avisos: avisosDelDia(
+                        sanidad: sanidad.panorama,
+                        inventario: bodega.inventario,
+                        huevo: huevos.bodega,
+                        pestanaBodega: 1,
+                        pestanaSanidad: 2,
+                        pestanaDinero: 3,
+                      ),
+                      alAbrir: (indice) => pestana.value = indice,
+                    ),
                   ),
-                  alAbrir: (indice) => pestana.value = indice,
-                ),
+                ],
               ),
               alRegistrar: (galpon) => _registrar(contexto, galpon),
               alCorregir: (galpon) => _corregir(contexto, galpon),
@@ -186,6 +204,12 @@ class GranjaApp extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _abrirGalpon(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => GalponVivoPantalla(estado: galpon, puedeControlar: sesion.sesion?.esAdministrador ?? false),
+    ),
+  );
 
   Future<void> _preguntar(BuildContext context, String? pregunta) => Navigator.of(context).push(
     MaterialPageRoute<void>(
