@@ -103,6 +103,35 @@ void main() {
     await tester.pump(const Duration(seconds: 11));
   });
 
+  testWidgets('abrir la pantalla desde la tarjeta del inicio no avisa en medio de la construcción', (tester) async {
+    final estado = EstadoGalponVivo(
+      ApiIot(Uri.parse('https://g.test'), cliente: Servidor().cliente()),
+      ClaveEnMemoria(),
+    );
+    await estado.cargar();
+    await tester.pumpWidget(
+      envolver(
+        Builder(
+          builder: (contexto) => Scaffold(
+            body: TarjetaGalponVivo(
+              estado: estado,
+              alAbrir: () => Navigator.of(contexto).push(
+                MaterialPageRoute<void>(builder: (_) => GalponVivoPantalla(estado: estado, puedeControlar: false)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Galpón en vivo'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Ventiladores galpón 1'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('quien no administra ve los datos pero no los controles', (tester) async {
     final estado = EstadoGalponVivo(
       ApiIot(Uri.parse('https://g.test'), cliente: Servidor().cliente()),

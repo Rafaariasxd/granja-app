@@ -59,7 +59,9 @@ class EstadoGalponVivo extends ChangeNotifier {
   void mirar() {
     _mirando++;
     if (_mirando == 1) {
-      unawaited(cargar());
+      scheduleMicrotask(() {
+        if (!_cerrado) cargar();
+      });
       _reloj = Timer.periodic(cada, (_) => cargar());
     }
   }
